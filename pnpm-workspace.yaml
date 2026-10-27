@@ -1,0 +1,15 @@
+packages:
+  - packages/*
+  - apps/*
+
+saveExact: true
+
+# Yeni yayınlanan sürümler 3 gün beklenir (ele geçirilmiş sürümler genelde bu sürede yakalanır).
+minimumReleaseAge: 4320
+
+# Daha önce trusted publisher/provenance ile yayınlanmış bir paketin güvencesi düşerse kurulum durur.
+trustPolicy: no-downgrade
+
+# Bağımlılıkların install script'leri çalışmaz; git hook'ları `prepare` script'i kurar.
+allowBuilds:
+  lefthook: false
