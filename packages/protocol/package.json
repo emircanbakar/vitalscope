@@ -8,6 +8,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema.d.ts",
+      "default": "./dist/schema.js"
     }
   },
   "files": [
@@ -22,5 +26,8 @@
     "@types/node": "24.19.2",
     "typescript": "6.0.3",
     "vitest": "5.0.5"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
   }
 }
