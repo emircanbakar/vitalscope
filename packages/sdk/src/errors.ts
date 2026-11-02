@@ -72,6 +72,15 @@ export function createErrorCollector(
   let scheduled = false;
   let total = 0;
   const counts = new Map<string, number>();
+  // Aynı yerden tekrar eden hata bekleme kuyruğunu doldurup farklı hataları düşürmesin diye
+  // stack işlenmeden önce ucuz bir anahtarla da sınırlanır.
+  const rawCounts = new Map<string, number>();
+
+  function rawKey(raw: RawError): string {
+    const { error } = raw;
+    const msg = typeof error === "object" && error !== null ? toText((error as { message?: unknown }).message) : toText(error ?? raw.message);
+    return `${msg.slice(0, MAX_RAW_MESSAGE)}|${raw.source ?? ""}:${raw.line ?? ""}:${raw.column ?? ""}`;
+  }
 
   function toEvent(raw: RawError & { ts: number }): ErrorEvent | undefined {
     const { type, msg, stack } = describe(raw);
@@ -108,6 +117,10 @@ export function createErrorCollector(
 
   function capture(raw: RawError): void {
     if (total >= MAX_ERRORS_PER_PAGE || pending.length >= MAX_ERRORS_PER_PAGE) return;
+    const key = rawKey(raw);
+    const seen = rawCounts.get(key) ?? 0;
+    if (seen >= MAX_SAME_ERROR) return;
+    rawCounts.set(key, seen + 1);
     pending.push({ ...raw, ts: Date.now() });
     if (!scheduled) {
       scheduled = true;
