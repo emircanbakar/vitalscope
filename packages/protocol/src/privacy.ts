@@ -14,9 +14,9 @@ const JWT = /eyJ[\w-]{4,}(?:\.[\w-]*)*/g;
 const BEARER = /\bBearer\s+[\w.~+/-]+=*/gi;
 /** Kart numarası, kimlik numarası gibi uzun rakam dizileri. */
 const LONG_NUMBER = /\d{13,}/g;
-/** URL'deki hassas parametrelerin değerleri: `?token=…`, `&api_key=…`. */
+/** Hassas parametrelerin değerleri: URL'de `?token=…`, `&api_key=…`, serbest metinde `token=…`. */
 const SECRET_PARAM =
-  /([?&;#](?:access_token|id_token|refresh_token|token|api_?key|key|secret|password|passwd|pwd|auth|session(?:id)?|code|signature|sig)=)[^&#\s'"]*/gi;
+  /(\b(?:access_token|id_token|refresh_token|token|api_?key|key|secret|password|passwd|pwd|auth|session(?:id)?|code|signature|sig)=)[^&#\s'"]*/gi;
 
 const SCRUB_PASSES = 3;
 
