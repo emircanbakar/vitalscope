@@ -1,8 +1,9 @@
-import { getRating, LIMITS, type CustomEvent, type Event, type MetricName } from "@vitalscope/protocol";
+import { getRating, LIMITS, scrubPath, type CustomEvent, type Event, type MetricName } from "@vitalscope/protocol";
 import { resolveConfig, type Config, type ResolvedConfig } from "./config.js";
-import { buildContext, createSessionId, markRestored } from "./context.js";
+import { buildContext, createSessionId, getPath, markRestored } from "./context.js";
 import { createErrorCollector } from "./errors.js";
 import { isPrerendering } from "./navigation-timing.js";
+import { watchRoutes } from "./spa.js";
 import { encodeBatches, send } from "./transport.js";
 import { startVitals } from "./vitals.js";
 
@@ -18,9 +19,13 @@ const FLUSH_AFTER_MS = 10_000;
 interface State {
   config: ResolvedConfig;
   sid: string;
+  /** Kuyruktaki olayların ait olduğu sayfa; rota değişince önce kuyruk gönderilir, sonra güncellenir. */
+  path: string;
+  route: string | undefined;
   queue: Event[];
   timer: ReturnType<typeof setTimeout> | undefined;
   stopVitals: () => void;
+  stopRoutes: () => void;
   errors: ReturnType<typeof createErrorCollector> | undefined;
 }
 
@@ -65,7 +70,7 @@ function flushNow(): void {
   const events = state.queue;
   state.queue = [];
   const { config } = state;
-  const header = { k: config.key, sdk: __SDK_VERSION__, ctx: buildContext(config, state.sid) };
+  const header = { k: config.key, sdk: __SDK_VERSION__, ctx: buildContext(config, state.sid, state.path, state.route) };
 
   for (const body of encodeBatches(header, events)) {
     if (config.debug) console.debug("[vitalscope]", JSON.parse(body));
@@ -80,6 +85,18 @@ const onVisibilityChange = safe(() => {
 const onPageHide = safe(flushNow);
 const onPageShow = safe((event: PageTransitionEvent) => {
   if (event.persisted) markRestored();
+});
+
+// Önceki sayfanın olayları kendi path'iyle gider. Sadece hash veya atılan query değiştiyse yeni sayfa sayılmaz.
+// Not: INP ve CLS sayfa gizlenince raporlanır, o anki rotaya atanır (SPA içi metrikler MVP'de yok).
+const onRouteChange = safe(() => {
+  if (!state) return;
+  const path = getPath(state.config.keepQuery);
+  if (path === state.path) return;
+  flushNow();
+  state.path = path;
+  state.route = undefined;
+  enqueue({ t: "pageview", ts: Date.now() });
 });
 
 const reportMetric = safe((name: MetricName, value: number, id: string) => {
@@ -127,9 +144,12 @@ export const init = safe((config: Config): void => {
   state = {
     config: resolved,
     sid: createSessionId(),
+    path: getPath(resolved.keepQuery),
+    route: undefined,
     queue: [],
     timer: undefined,
     stopVitals: () => {},
+    stopRoutes: () => {},
     errors: undefined,
   };
   document.addEventListener("visibilitychange", onVisibilityChange);
@@ -142,6 +162,17 @@ export const init = safe((config: Config): void => {
   }
   enqueue({ t: "pageview", ts: Date.now() });
   state.stopVitals = startVitals(reportMetric);
+  if (resolved.trackSpa) state.stopRoutes = watchRoutes(onRouteChange);
+});
+
+/**
+ * Mevcut sayfanın rota şablonunu bildirir, örn. `setRoute("/urun/[id]")`; dashboard'da gruplamayı sağlar.
+ * Rota değiştikten sonra çağrılmalıdır: her rota değişiminde şablon sıfırlanır.
+ */
+export const setRoute = safe((template: string): void => {
+  if (!state || typeof template !== "string") return;
+  const route = scrubPath(template).slice(0, LIMITS.maxRouteLength);
+  state.route = route || undefined;
 });
 
 /** Elle hata gönderir (try/catch, error boundary). Varsayılan olarak `handled: true`. */
@@ -165,6 +196,7 @@ export const disable = safe((): void => {
   if (!state) return;
   clearTimeout(state.timer);
   state.stopVitals();
+  state.stopRoutes();
   document.removeEventListener("visibilitychange", onVisibilityChange);
   removeEventListener("pagehide", onPageHide);
   removeEventListener("pageshow", onPageShow);

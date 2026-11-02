@@ -38,7 +38,7 @@ function getNavigationType(): ContextInput["nav"] {
 }
 
 /** Hash ve query atılır; sadece `keepQuery` listesindeki parametreler (temizlenmiş değerleriyle) kalır. */
-function getPath(keepQuery: readonly string[]): string {
+export function getPath(keepQuery: readonly string[]): string {
   const params = new URLSearchParams(location.search);
   const kept = new URLSearchParams();
   for (const name of keepQuery) {
@@ -49,14 +49,16 @@ function getPath(keepQuery: readonly string[]): string {
   return (scrubPath(location.pathname) + (query ? `?${query}` : "")).slice(0, LIMITS.maxPathLength);
 }
 
-export function buildContext(config: ResolvedConfig, sid: string): ContextInput {
+/** `path` ve `route` olayların ait olduğu sayfanındır; gönderim anındaki URL'den okunmaz. */
+export function buildContext(config: ResolvedConfig, sid: string, path: string, route: string | undefined): ContextInput {
   const ctx: ContextInput = {
     sid,
-    path: getPath(config.keepQuery),
+    path,
     env: config.environment,
     device: getDevice(),
     sr: config.sampleRate,
   };
+  if (route !== undefined) ctx.route = route;
   if (config.release !== undefined) ctx.release = config.release;
   const conn = getConnection();
   if (conn) ctx.conn = conn;

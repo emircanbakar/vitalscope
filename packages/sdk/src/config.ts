@@ -12,6 +12,8 @@ export interface Config {
   sampleRate?: number;
   /** Yakalanmamış hataları ve reddedilmiş promise'leri otomatik toplar. Varsayılan `true`. */
   captureErrors?: boolean;
+  /** SPA rota değişimlerini algılar ve her birinde pageview gönderir. Varsayılan `true`. */
+  trackSpa?: boolean;
   /** Mesajı bu metni içeren ya da bu desene uyan hatalar gönderilmez. */
   ignoreErrors?: IgnorePattern[];
   /** Gönderilmesine izin verilen query parametreleri; geri kalanı atılır. */
@@ -29,6 +31,7 @@ export interface ResolvedConfig {
   environment: "production" | "preview" | "development";
   sampleRate: number;
   captureErrors: boolean;
+  trackSpa: boolean;
   ignoreErrors: IgnorePattern[];
   keepQuery: string[];
   respectDoNotTrack: boolean;
@@ -61,8 +64,19 @@ const isPattern = (item: unknown): item is IgnorePattern => typeof item === "str
  */
 export function resolveConfig(input: unknown): ResolvedConfig | null {
   if (typeof input !== "object" || input === null) return null;
-  const { key, endpoint, release, environment, sampleRate, captureErrors, ignoreErrors, keepQuery, respectDoNotTrack, debug } =
-    input as Record<string, unknown>;
+  const {
+    key,
+    endpoint,
+    release,
+    environment,
+    sampleRate,
+    captureErrors,
+    trackSpa,
+    ignoreErrors,
+    keepQuery,
+    respectDoNotTrack,
+    debug,
+  } = input as Record<string, unknown>;
 
   if (typeof key !== "string" || !PUBLIC_KEY_PATTERN.test(key)) return null;
   if (typeof endpoint !== "string" || !isAllowedEndpoint(endpoint)) return null;
@@ -81,6 +95,7 @@ export function resolveConfig(input: unknown): ResolvedConfig | null {
     environment: (environment as ResolvedConfig["environment"] | undefined) ?? "production",
     sampleRate: sampleRate ?? 1,
     captureErrors: captureErrors !== false,
+    trackSpa: trackSpa !== false,
     // Diziler kopyalanır: init'ten sonra dışarıdan değiştirilemez.
     ignoreErrors: [...(ignoreErrors ?? [])],
     keepQuery: [...(keepQuery ?? [])],
