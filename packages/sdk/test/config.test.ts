@@ -13,6 +13,7 @@ describe("resolveConfig", () => {
       environment: "production",
       sampleRate: 1,
       captureErrors: true,
+      trackSpa: true,
       ignoreErrors: [],
       keepQuery: [],
       respectDoNotTrack: false,
