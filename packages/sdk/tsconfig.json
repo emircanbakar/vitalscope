@@ -2,7 +2,10 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2022", "DOM"],
-    "types": ["node"]
+    "types": ["node"],
+    // Next.js `exports` alanı tanımlamıyor; NodeNext uzantısız `next/navigation`'ı bulamaz.
+    // Kaynakta Next'in belgelediği yazım korunur, böylece Next'in kendi alias'ları da çalışır.
+    "paths": { "next/navigation": ["./node_modules/next/navigation.d.ts"] }
   },
   "include": ["src", "test", "*.config.ts"]
 }
