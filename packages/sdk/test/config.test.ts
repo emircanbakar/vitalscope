@@ -12,6 +12,10 @@ describe("resolveConfig", () => {
       release: undefined,
       environment: "production",
       sampleRate: 1,
+      captureErrors: true,
+      ignoreErrors: [],
+      keepQuery: [],
+      respectDoNotTrack: false,
       debug: false,
     });
   });
@@ -28,6 +32,9 @@ describe("resolveConfig", () => {
     ["sample rate above 1", { key, endpoint, sampleRate: 1.5 }],
     ["negative sample rate", { key, endpoint, sampleRate: -0.1 }],
     ["NaN sample rate", { key, endpoint, sampleRate: Number.NaN }],
+    ["non-list ignoreErrors", { key, endpoint, ignoreErrors: "ResizeObserver" }],
+    ["ignoreErrors with a number", { key, endpoint, ignoreErrors: [1] }],
+    ["keepQuery with a RegExp", { key, endpoint, keepQuery: [/utm/] }],
   ])("rejects %s", (_, input) => {
     expect(resolveConfig(input)).toBeNull();
   });

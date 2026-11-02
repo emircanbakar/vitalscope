@@ -1,4 +1,5 @@
 import { LIMITS, type Event } from "@vitalscope/protocol";
+import fc from "fast-check";
 import { Batch } from "@vitalscope/protocol/schema";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { encodeBatches, send, type BatchHeader } from "../src/transport.js";
@@ -41,6 +42,32 @@ describe("encodeBatches", () => {
       expect(Batch.safeParse(JSON.parse(b)).success).toBe(true);
     }
     expect(bodies.reduce((n, b) => n + JSON.parse(b).e.length, 0)).toBe(12);
+  });
+
+  it("keeps every batch within 50 events and 60 KB for arbitrary event mixes", () => {
+    const event = fc.oneof(
+      fc.integer({ min: 0, max: 1e6 }).map(pageview),
+      fc.integer({ min: 0, max: 1e6 }).map(bigError),
+      fc
+        .record({ name: fc.string({ minLength: 1, maxLength: LIMITS.maxCustomNameLength }), value: fc.double({ noNaN: true, noDefaultInfinity: true }) })
+        .map(({ name, value }): Event => ({ t: "custom", ts: 1792044000000, name, value })),
+    );
+    fc.assert(
+      fc.property(fc.array(event, { maxLength: 200 }), (events) => {
+        const bodies = encodeBatches(header, events);
+        let count = 0;
+        for (const b of bodies) {
+          const parsed = JSON.parse(b);
+          expect(bytes(b)).toBeLessThanOrEqual(LIMITS.maxBatchBytes);
+          expect(parsed.e.length).toBeGreaterThan(0);
+          expect(parsed.e.length).toBeLessThanOrEqual(LIMITS.maxEventsPerBatch);
+          expect(Batch.safeParse(parsed).success).toBe(true);
+          count += parsed.e.length;
+        }
+        expect(count).toBe(events.length);
+      }),
+      { numRuns: 100 },
+    );
   });
 
   it("returns nothing for an empty queue", () => {
