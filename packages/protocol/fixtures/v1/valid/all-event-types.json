@@ -1,0 +1,80 @@
+{
+  "v": 1,
+  "k": "pk_3f9a0c1d2e4b5a6978c0d1e2",
+  "sdk": "0.3.0",
+  "ctx": {
+    "sid": "a81f0c33b7e94d12",
+    "path": "/sonuc",
+    "route": "/sonuc",
+    "release": "9f2c1ab",
+    "env": "production",
+    "device": "mobile",
+    "conn": "4g",
+    "nav": "navigate"
+  },
+  "e": [
+    {
+      "t": "pageview",
+      "ts": 1792044000123,
+      "path": "/urun/42"
+    },
+    {
+      "t": "vital",
+      "ts": 1792044005000,
+      "name": "INP",
+      "value": 412,
+      "rating": "needs-improvement",
+      "id": "v4-1792044000123-9001",
+      "attr": {
+        "target": "button#buy",
+        "type": "pointer",
+        "inputDelay": 12,
+        "processing": 380,
+        "presentation": 20,
+        "script": "https://ecbakar.com/_next/static/chunks/main.js"
+      }
+    },
+    {
+      "t": "vital",
+      "ts": 1792044006000,
+      "name": "CLS",
+      "value": 0.18,
+      "rating": "needs-improvement",
+      "id": "v4-1792044000123-9002",
+      "attr": {
+        "target": "div.banner",
+        "time": 2300
+      }
+    },
+    {
+      "t": "vital",
+      "ts": 1792044000300,
+      "name": "TTFB",
+      "value": 210,
+      "rating": "good",
+      "id": "v4-1792044000123-9003"
+    },
+    {
+      "t": "error",
+      "ts": 1792044007000,
+      "type": "TypeError",
+      "msg": "Cannot read properties of undefined (reading 'price')",
+      "handled": false,
+      "stack": [
+        "TypeError: Cannot read properties of undefined (reading 'price')",
+        "    at renderCart (https://ecbakar.com/_next/static/chunks/app.js:1:2345)"
+      ]
+    },
+    {
+      "t": "custom",
+      "ts": 1792044008000,
+      "name": "checkout_completed",
+      "value": 1
+    },
+    {
+      "t": "custom",
+      "ts": 1792044008100,
+      "name": "newsletter_signup"
+    }
+  ]
+}
