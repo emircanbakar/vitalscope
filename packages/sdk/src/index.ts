@@ -1,6 +1,7 @@
 import { getRating, LIMITS, type CustomEvent, type Event, type MetricName } from "@vitalscope/protocol";
 import { resolveConfig, type Config, type ResolvedConfig } from "./config.js";
 import { buildContext, createSessionId, markRestored } from "./context.js";
+import { createErrorCollector } from "./errors.js";
 import { isPrerendering } from "./navigation-timing.js";
 import { encodeBatches, send } from "./transport.js";
 import { startVitals } from "./vitals.js";
@@ -20,6 +21,7 @@ interface State {
   queue: Event[];
   timer: ReturnType<typeof setTimeout> | undefined;
   stopVitals: () => void;
+  errors: ReturnType<typeof createErrorCollector> | undefined;
 }
 
 let state: State | undefined;
@@ -53,6 +55,8 @@ function enqueue(event: Event): void {
 
 function flushNow(): void {
   if (!state) return;
+  // Boşta işlenmeyi bekleyen hatalar sayfa kapanmadan senkron işlenir.
+  state.errors?.drain();
   clearTimeout(state.timer);
   state.timer = undefined;
   // Prerender edilen sayfa henüz kullanıcıya gösterilmedi: olaylar kuyrukta bekler.
@@ -82,6 +86,26 @@ const reportMetric = safe((name: MetricName, value: number, id: string) => {
   enqueue({ t: "vital", ts: Date.now(), name, value, rating: getRating(name, value), id });
 });
 
+// Mevcut `window.onerror` ezilmez; hata yutulmaz, sadece gözlemlenir.
+const onError = safe((event: ErrorEvent) => {
+  state?.errors?.capture({
+    error: event.error,
+    handled: false,
+    message: event.message,
+    source: event.filename,
+    line: event.lineno,
+    column: event.colno,
+  });
+});
+const onRejection = safe((event: PromiseRejectionEvent) => {
+  state?.errors?.capture({ error: event.reason, handled: false });
+});
+
+function prefersNoTracking(): boolean {
+  const nav = navigator as Navigator & { globalPrivacyControl?: boolean };
+  return nav.globalPrivacyControl === true || nav.doNotTrack === "1";
+}
+
 export const init = safe((config: Config): void => {
   const resolved = resolveConfig(config);
   const devMode = resolved?.debug === true || (config as Partial<Config> | undefined)?.environment === "development";
@@ -96,15 +120,33 @@ export const init = safe((config: Config): void => {
   }
 
   initialized = true;
+  if (resolved.respectDoNotTrack && prefersNoTracking()) return;
   // Örneklem dışı kalan sayfada hiçbir olay toplanmaz (metrikler arası tutarlılık için).
   if (Math.random() >= resolved.sampleRate) return;
 
-  state = { config: resolved, sid: createSessionId(), queue: [], timer: undefined, stopVitals: () => {} };
+  state = {
+    config: resolved,
+    sid: createSessionId(),
+    queue: [],
+    timer: undefined,
+    stopVitals: () => {},
+    errors: undefined,
+  };
   document.addEventListener("visibilitychange", onVisibilityChange);
   addEventListener("pagehide", onPageHide);
   addEventListener("pageshow", onPageShow);
+  if (resolved.captureErrors) {
+    state.errors = createErrorCollector(enqueue, resolved.ignoreErrors, (fn) => whenIdle(safe(fn)));
+    addEventListener("error", onError);
+    addEventListener("unhandledrejection", onRejection);
+  }
   enqueue({ t: "pageview", ts: Date.now() });
   state.stopVitals = startVitals(reportMetric);
+});
+
+/** Elle hata gönderir (try/catch, error boundary). Varsayılan olarak `handled: true`. */
+export const captureError = safe((error: unknown, options?: { handled?: boolean }): void => {
+  state?.errors?.capture({ error, handled: options?.handled !== false });
 });
 
 /** Özel olay, örn. `track("checkout_completed")`. */
@@ -126,5 +168,7 @@ export const disable = safe((): void => {
   document.removeEventListener("visibilitychange", onVisibilityChange);
   removeEventListener("pagehide", onPageHide);
   removeEventListener("pageshow", onPageShow);
+  removeEventListener("error", onError);
+  removeEventListener("unhandledrejection", onRejection);
   state = undefined;
 });

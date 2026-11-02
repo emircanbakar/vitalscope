@@ -1,6 +1,7 @@
 // Ana giriş noktası Zod'u runtime'da yüklemez: sadece sabitler ve tipler.
 // Zod şemaları `@vitalscope/protocol/schema` altındadır (ingest kullanır).
 export * from "./constants.js";
+export * from "./privacy.js";
 export type {
   Attribution,
   Batch,

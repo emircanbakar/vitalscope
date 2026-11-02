@@ -6,4 +6,6 @@ useDefault = true
 description = "Example project keys used in tests and fixtures"
 regexes = [
   '''^[ps]k_3f9a0c1d2e4b5a6978c0d1e2$''',
+  # Gizlilik testlerindeki sahte JWT (payload: {"sub":"1234567890"}).
+  '''^eyJhbGciOiJIUzI1NiJ9\.eyJzdWIiOiIxMjM0NTY3ODkwIn0\.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U$''',
 ]

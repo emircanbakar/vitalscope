@@ -1,4 +1,4 @@
-import { LIMITS, type ContextInput } from "@vitalscope/protocol";
+import { LIMITS, scrubPath, scrubText, type ContextInput } from "@vitalscope/protocol";
 import type { ResolvedConfig } from "./config.js";
 import { getActivationStart, getNavigationEntry } from "./navigation-timing.js";
 
@@ -37,11 +37,22 @@ function getNavigationType(): ContextInput["nav"] {
   return type !== undefined && NAV_TYPES.includes(type) ? (type as ContextInput["nav"]) : undefined;
 }
 
+/** Hash ve query atılır; sadece `keepQuery` listesindeki parametreler (temizlenmiş değerleriyle) kalır. */
+function getPath(keepQuery: readonly string[]): string {
+  const params = new URLSearchParams(location.search);
+  const kept = new URLSearchParams();
+  for (const name of keepQuery) {
+    const value = params.get(name);
+    if (value !== null) kept.set(name, scrubText(value));
+  }
+  const query = kept.toString();
+  return (scrubPath(location.pathname) + (query ? `?${query}` : "")).slice(0, LIMITS.maxPathLength);
+}
+
 export function buildContext(config: ResolvedConfig, sid: string): ContextInput {
   const ctx: ContextInput = {
     sid,
-    // pathname query ve hash içermez
-    path: location.pathname.slice(0, LIMITS.maxPathLength),
+    path: getPath(config.keepQuery),
     env: config.environment,
     device: getDevice(),
     sr: config.sampleRate,
