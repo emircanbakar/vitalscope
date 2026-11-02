@@ -1,6 +1,6 @@
 # Yol haritası ve durum
 
-Son güncelleme: 2 Kasım 2026 (main: `ab2d26f`)
+Son güncelleme: 2 Kasım 2026 (main: `7d3012c`)
 
 Vitalscope, sitelerin gerçek kullanıcı performansını (Core Web Vitals) ve JavaScript hatalarını izleyen, açık kaynak ve self-host edilebilir bir platformdur. Üç parçadan oluşur:
 
@@ -23,14 +23,15 @@ Kurallar: her adım ayrı branch ve PR, CI yeşil olmadan merge yok, PR'lar squa
 | #5 | Hatalar ve gizlilik | `error` / `unhandledrejection` yakalama, `captureError`, eklenti ve `Script error.` filtresi, `ignoreErrors`, fırtına koruması (aynı hata 5, toplam 50); protokolde `scrubText` / `scrubPath`, `keepQuery`, `respectDoNotTrack`; fast-check property testleri |
 | #7 | SPA rota takibi | Navigation API (`currententrychange`), yoksa `pushState` / `replaceState` sarmalama + `popstate`; rota değişince önceki sayfanın olayları kendi path'iyle gönderilir, yeni sayfa için pageview; `setRoute()`, `trackSpa` |
 | #9 | React ve Next.js | `@vitalscope/sdk/react` (`VitalscopeProvider`, `route` prop'u), `@vitalscope/sdk/next` (şablonu `usePathname` + `useParams` ile çıkarır); React ve Next isteğe bağlı peer dependency, `"use client"` korunur |
+| #11 | Playground + Playwright (senaryolar) | `apps/playground`: slow-lcp, janky-button, layout-shift, throws, spa, pii, bfcache, sıkı CSP + Trusted Types; Chromium, Firefox, WebKit'te build edilmiş sitede; her istek protokol şemasıyla doğrulanır; CI'da `e2e` işi. Bulunan iki hata düzeltildi: URL dışındaki `token=` sızıntısı, tekrar eden hatanın farklı hataları düşürmesi |
 
-Durum: 179 test (protokol 50, SDK 129). Boyut minify + gzip (esbuild + gzip -9): çekirdek 4.646 B, `/react` 4.688 B, `/next` 4.940 B (çekirdek dahil).
+Durum: 183 birim testi (protokol 52, SDK 131) + 27 e2e senaryosu (9 senaryo × 3 tarayıcı). Boyut minify + gzip (esbuild + gzip -9): çekirdek 4.723 B, `/react` 4.771 B, `/next` 5.017 B (çekirdek dahil).
 
 ## Sıradaki adımlar
 
 ### SDK
 
-- [ ] **Playground + Playwright:** `apps/playground` sayfaları (slow-lcp, janky-button, layout-shift, throws, spa, pii, bfcache, CSP / Trusted Types); Chromium, Firefox, WebKit; `init` < 1 ms ve sıfır long task bütçeleri; web-vitals ile karşılaştırma
+- [ ] **Performans bütçeleri:** `init` < 1 ms (4× CPU yavaşlatma), sıfır long task, sitenin LCP/INP'sine etki (SDK'lı/SDK'sız 20'şer ölçüm), web-vitals ile karşılaştırma
 - [ ] **Attribution build'i ve boyut bütçeleri:** attribution < 5 KB, size-limit CI'da; 3 KB çekirdek bütçesi kararı bu adımda verilecek
 - [ ] **Yayın:** IIFE build (`window.vitalscope`, dondurulmuş), SRI hash'leri, trusted publishing + provenance, `0.1.0`
 - [ ] **Dogfooding:** enflasyon uygulaması ve ecbakar.com'a kurulum
@@ -50,6 +51,21 @@ Durum: 179 test (protokol 50, SDK 129). Boyut minify + gzip (esbuild + gzip -9):
 - [ ] **Paketleme ve deploy:** üretim Dockerfile'ları, GHCR, imaj imzalama, compose + Caddy, deploy workflow'u, yedekleme
 - [ ] **Demo ve case study:** `/demo` sayfası, ecbakar.com yazısı
 
+## Tarayıcı farkları ve atlanan testler
+
+PR #11'deki e2e senaryolarından çıkanlar. Hedef: hiçbir senaryonun "atlandı" ile geçmemesi; ya gerçekten doğrulanması ya da neden doğrulanamadığının kanıtlanması.
+
+| Konu | Durum | Neden | Çözüm yönü |
+| --- | --- | --- | --- |
+| bfcache | 3 tarayıcıda atlanıyor | SDK'sız kontrol sayfası bile Playwright'ın tarayıcılarında bfcache'ten geri gelmiyor; nedeni bilinmiyor (Playwright kaynağında bfcache'i kapatan bir bayrak bulunamadı) | Chromium'da `PerformanceNavigationTiming.notRestoredReasons` ile neden okunup SDK'nın engelleyici olmadığı kanıtlanabilir; ek olarak SDK'nın `unload` / `beforeunload` dinlemediğini doğrulayan birim testi |
+| Sayfadan çıkarken gönderim | Chromium'da atlanıyor | `pagehide` içinde gönderilen düz bir `sendBeacon` bile `true` dönüyor ama Playwright'ın `route` yakalamasına düşmüyor; SDK değil, test altyapısı sınırı | Yakalamayı `route` yerine gerçek bir yerel sahte ingest sunucusuna taşımak (`http://localhost`); ileride gerçek ingest'le uçtan uca teste de temel olur |
+| CLS | Firefox ve WebKit'te ölçülmüyor | Tarayıcılar Layout Instability API'yi desteklemiyor | Test tarafında çözüm yok; test "olay gönderilmez, sayfa kırılmaz" durumunu doğruluyor. Dashboard'da CLS'nin sadece Chromium tabanlı tarayıcılardan geldiği belirtilmeli, README'ye yazılmalı |
+| LCP değerlendirmesi | Çözüldü, izlenmeli | Yavaş açılan Firefox'ta 3 sn gecikmeye açılış süresi eklenip 4 sn'yi geçebiliyor | Test sabit `needs-improvement` yerine eşiklerle tutarlılığı kontrol ediyor; daha kararlı hale getirmek için ölçümden önce ısınma (warm-up) navigasyonu düşünülebilir |
+| LCP görseli | Çözüldü | Chromium düşük entropili (tek renk) görselleri LCP adayı saymıyor | Senaryo rastgele pikselli görsel çiziyor; gerçek sitelerde de logo / düz renkli görsellerin LCP sayılmayacağı README'ye not edilmeli |
+
+- [ ] Sahte ingest sunucusu ile e2e yakalaması (Chromium'da sayfadan çıkış testi açılır)
+- [ ] bfcache: `notRestoredReasons` ile kanıt + `unload` dinlenmediğine dair birim testi
+- [ ] README'ye tarayıcı desteği tablosu (CLS, LCP entropi kuralı)
 ## Ertelenen işler
 
 - [ ] `beforeSend(event)`: dönen olay temizlikten ve protokol sınırlarından tekrar geçmeli; prototype pollution koruması ile birlikte ayrı PR
