@@ -1,7 +1,9 @@
-import { LIMITS, type CustomEvent, type Event } from "@vitalscope/protocol";
+import { getRating, LIMITS, type CustomEvent, type Event, type MetricName } from "@vitalscope/protocol";
 import { resolveConfig, type Config, type ResolvedConfig } from "./config.js";
-import { buildContext, createSessionId } from "./context.js";
+import { buildContext, createSessionId, markRestored } from "./context.js";
+import { isPrerendering } from "./navigation-timing.js";
 import { encodeBatches, send } from "./transport.js";
+import { startVitals } from "./vitals.js";
 
 export type { Config } from "./config.js";
 
@@ -17,6 +19,7 @@ interface State {
   sid: string;
   queue: Event[];
   timer: ReturnType<typeof setTimeout> | undefined;
+  stopVitals: () => void;
 }
 
 let state: State | undefined;
@@ -52,7 +55,8 @@ function flushNow(): void {
   if (!state) return;
   clearTimeout(state.timer);
   state.timer = undefined;
-  if (state.queue.length === 0) return;
+  // Prerender edilen sayfa henüz kullanıcıya gösterilmedi: olaylar kuyrukta bekler.
+  if (state.queue.length === 0 || isPrerendering()) return;
 
   const events = state.queue;
   state.queue = [];
@@ -70,6 +74,13 @@ const onVisibilityChange = safe(() => {
   if (document.visibilityState === "hidden") flushNow();
 });
 const onPageHide = safe(flushNow);
+const onPageShow = safe((event: PageTransitionEvent) => {
+  if (event.persisted) markRestored();
+});
+
+const reportMetric = safe((name: MetricName, value: number, id: string) => {
+  enqueue({ t: "vital", ts: Date.now(), name, value, rating: getRating(name, value), id });
+});
 
 export const init = safe((config: Config): void => {
   const resolved = resolveConfig(config);
@@ -85,10 +96,15 @@ export const init = safe((config: Config): void => {
   }
 
   initialized = true;
-  state = { config: resolved, sid: createSessionId(), queue: [], timer: undefined };
+  // Örneklem dışı kalan sayfada hiçbir olay toplanmaz (metrikler arası tutarlılık için).
+  if (Math.random() >= resolved.sampleRate) return;
+
+  state = { config: resolved, sid: createSessionId(), queue: [], timer: undefined, stopVitals: () => {} };
   document.addEventListener("visibilitychange", onVisibilityChange);
   addEventListener("pagehide", onPageHide);
+  addEventListener("pageshow", onPageShow);
   enqueue({ t: "pageview", ts: Date.now() });
+  state.stopVitals = startVitals(reportMetric);
 });
 
 /** Özel olay, örn. `track("checkout_completed")`. */
@@ -106,7 +122,9 @@ export const flush = safe(flushNow);
 export const disable = safe((): void => {
   if (!state) return;
   clearTimeout(state.timer);
+  state.stopVitals();
   document.removeEventListener("visibilitychange", onVisibilityChange);
   removeEventListener("pagehide", onPageHide);
+  removeEventListener("pageshow", onPageShow);
   state = undefined;
 });
