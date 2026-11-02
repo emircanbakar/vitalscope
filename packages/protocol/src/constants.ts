@@ -24,6 +24,9 @@ export function getRating(name: MetricName, value: number): Rating {
   return "poor";
 }
 
+/** Public project key biçimi: yazma yetkili, gizli değil. */
+export const PUBLIC_KEY_PATTERN = /^pk_[a-z0-9]{24}$/;
+
 export const LIMITS = {
   /** Ingest'in kabul ettiği en büyük istek gövdesi (sendBeacon sınırıyla uyumlu). */
   maxBodyBytes: 64 * 1024,

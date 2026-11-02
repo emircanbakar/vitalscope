@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LIMITS, METRIC_NAMES, PROTOCOL_VERSION, RATINGS } from "./constants.js";
+import { LIMITS, METRIC_NAMES, PROTOCOL_VERSION, PUBLIC_KEY_PATTERN, RATINGS } from "./constants.js";
 
 // Bilinmeyen alanlar hata vermeden atılır (z.object varsayılanı): yeni SDK eski sunucuya veri gönderebilir.
 
@@ -80,8 +80,7 @@ export const Event = z.discriminatedUnion("t", [PageviewEvent, VitalEvent, Error
 
 export const Batch = z.object({
   v: z.literal(PROTOCOL_VERSION),
-  /** Public project key: yazma yetkili, gizli değil. */
-  k: z.string().regex(/^pk_[a-z0-9]{24}$/),
+  k: z.string().regex(PUBLIC_KEY_PATTERN),
   sdk: z.string().max(LIMITS.maxSdkVersionLength),
   ctx: Context,
   e: z.array(Event).min(1).max(LIMITS.maxEventsPerBatch),

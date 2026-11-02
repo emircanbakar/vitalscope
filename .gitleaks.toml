@@ -1,0 +1,9 @@
+[extend]
+useDefault = true
+
+# Dokümanlarda ve testlerde kullanılan sahte örnek anahtarlar; hiçbir projeye ait değil.
+[[allowlists]]
+description = "Example project keys used in tests and fixtures"
+regexes = [
+  '''^[ps]k_3f9a0c1d2e4b5a6978c0d1e2$''',
+]

@@ -45,3 +45,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_COMMENTS: false
+          # Yerel pre-commit hook'uyla aynı sürüm; .gitleaks.toml'daki [[allowlists]] 8.25+ ister.
+          GITLEAKS_VERSION: 8.30.1
