@@ -1,6 +1,6 @@
 # Yol haritası ve durum
 
-Son güncelleme: 2 Kasım 2026 (main: `0dba173`)
+Son güncelleme: 2 Kasım 2026 (main: `ab2d26f`)
 
 Vitalscope, sitelerin gerçek kullanıcı performansını (Core Web Vitals) ve JavaScript hatalarını izleyen, açık kaynak ve self-host edilebilir bir platformdur. Üç parçadan oluşur:
 
@@ -21,14 +21,15 @@ Kurallar: her adım ayrı branch ve PR, CI yeşil olmadan merge yok, PR'lar squa
 | #3 | SDK çekirdeği | `init`, kuyruk, batch (50 olay / 60 KB), sendBeacon + fetch keepalive, flush tetikleyicileri, debug modu, örnekleme, `track`, `flush`, `disable` |
 | #4 | Metrikler | TTFB, FCP, LCP, CLS, INP bağımlılıksız; prerender ve bfcache desteği; cihaz, bağlantı, navigasyon bağlamı |
 | #5 | Hatalar ve gizlilik | `error` / `unhandledrejection` yakalama, `captureError`, eklenti ve `Script error.` filtresi, `ignoreErrors`, fırtına koruması (aynı hata 5, toplam 50); protokolde `scrubText` / `scrubPath`, `keepQuery`, `respectDoNotTrack`; fast-check property testleri |
+| #7 | SPA rota takibi | Navigation API (`currententrychange`), yoksa `pushState` / `replaceState` sarmalama + `popstate`; rota değişince önceki sayfanın olayları kendi path'iyle gönderilir, yeni sayfa için pageview; `setRoute()`, `trackSpa` |
+| #9 | React ve Next.js | `@vitalscope/sdk/react` (`VitalscopeProvider`, `route` prop'u), `@vitalscope/sdk/next` (şablonu `usePathname` + `useParams` ile çıkarır); React ve Next isteğe bağlı peer dependency, `"use client"` korunur |
 
-Durum: 148 test (protokol 50, SDK 98). SDK boyutu 4,24 KB minify + gzip (brotli 3,84 KB).
+Durum: 179 test (protokol 50, SDK 129). Boyut minify + gzip (esbuild + gzip -9): çekirdek 4.646 B, `/react` 4.688 B, `/next` 4.940 B (çekirdek dahil).
 
 ## Sıradaki adımlar
 
 ### SDK
 
-- [ ] **SPA ve React:** Navigation API ile rota algılama (yoksa `pushState` / `replaceState` sarmalama + `popstate`), `trackSpa`, `setRoute()`, `@vitalscope/sdk/react` (`VitalscopeProvider`, React `peerDependency`)
 - [ ] **Playground + Playwright:** `apps/playground` sayfaları (slow-lcp, janky-button, layout-shift, throws, spa, pii, bfcache, CSP / Trusted Types); Chromium, Firefox, WebKit; `init` < 1 ms ve sıfır long task bütçeleri; web-vitals ile karşılaştırma
 - [ ] **Attribution build'i ve boyut bütçeleri:** attribution < 5 KB, size-limit CI'da; 3 KB çekirdek bütçesi kararı bu adımda verilecek
 - [ ] **Yayın:** IIFE build (`window.vitalscope`, dondurulmuş), SRI hash'leri, trusted publishing + provenance, `0.1.0`
@@ -55,7 +56,8 @@ Durum: 148 test (protokol 50, SDK 98). SDK boyutu 4,24 KB minify + gzip (brotli 
 - [ ] `errorSampleRate`: protokolde tek `sr` alanı var, hatalar için ayrı oran protokol değişikliği gerektirir
 - [ ] `init` ikinci kez çağrılınca geliştirme modunda uyarı
 - [ ] `sid` için isteğe bağlı `sessionStorage`
-- [ ] Çekirdek boyut bütçesi: dokümanda 3 KB, şu an 4,24 KB (attribution / boyut adımında karar)
+- [ ] SPA içi (soft navigation) metrikler: INP ve CLS sayfa gizlenince raporlanır, o anki rotaya atanır
+- [ ] Çekirdek boyut bütçesi: dokümanda 3 KB, şu an 4.646 B (attribution / boyut adımında karar)
 
 ## Güvenlik ve kalite eksikleri
 
