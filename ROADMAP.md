@@ -1,6 +1,6 @@
 # Yol haritası ve durum
 
-Son güncelleme: 2 Kasım 2026 (main: `7d3012c`)
+Son güncelleme: 2 Kasım 2026 (main: `8e29122`)
 
 Vitalscope, sitelerin gerçek kullanıcı performansını (Core Web Vitals) ve JavaScript hatalarını izleyen, açık kaynak ve self-host edilebilir bir platformdur. Üç parçadan oluşur:
 
@@ -24,8 +24,9 @@ Kurallar: her adım ayrı branch ve PR, CI yeşil olmadan merge yok, PR'lar squa
 | #7 | SPA rota takibi | Navigation API (`currententrychange`), yoksa `pushState` / `replaceState` sarmalama + `popstate`; rota değişince önceki sayfanın olayları kendi path'iyle gönderilir, yeni sayfa için pageview; `setRoute()`, `trackSpa` |
 | #9 | React ve Next.js | `@vitalscope/sdk/react` (`VitalscopeProvider`, `route` prop'u), `@vitalscope/sdk/next` (şablonu `usePathname` + `useParams` ile çıkarır); React ve Next isteğe bağlı peer dependency, `"use client"` korunur |
 | #11 | Playground + Playwright (senaryolar) | `apps/playground`: slow-lcp, janky-button, layout-shift, throws, spa, pii, bfcache, sıkı CSP + Trusted Types; Chromium, Firefox, WebKit'te build edilmiş sitede; her istek protokol şemasıyla doğrulanır; CI'da `e2e` işi. Bulunan iki hata düzeltildi: URL dışındaki `token=` sızıntısı, tekrar eden hatanın farklı hataları düşürmesi |
+| #13 | E2E: yerel sahte ingest | Olaylar `route` yerine bellekte çalışan yerel bir ingest sunucusuna gider; Chromium yeni headless modda ve bfcache'i kapatan Playwright bayrağı olmadan çalışır; kalan atlamalar her çalışmada kontrol deneyiyle (SDK'sız sayfa, düz `sendBeacon`) kararlaştırılır |
 
-Durum: 183 birim testi (protokol 52, SDK 131) + 27 e2e senaryosu (9 senaryo × 3 tarayıcı). Boyut minify + gzip (esbuild + gzip -9): çekirdek 4.723 B, `/react` 4.771 B, `/next` 5.017 B (çekirdek dahil).
+Durum: 183 birim testi (protokol 52, SDK 131) + 30 e2e testi (10 senaryo × 3 tarayıcı; 27 geçer, 3 kontrol deneyiyle atlanır). Boyut minify + gzip (esbuild + gzip -9): çekirdek 4.723 B, `/react` 4.771 B, `/next` 5.017 B (çekirdek dahil).
 
 ## Sıradaki adımlar
 
@@ -53,18 +54,18 @@ Durum: 183 birim testi (protokol 52, SDK 131) + 27 e2e senaryosu (9 senaryo × 3
 
 ## Tarayıcı farkları ve atlanan testler
 
-PR #11'deki e2e senaryolarından çıkanlar. Hedef: hiçbir senaryonun "atlandı" ile geçmemesi; ya gerçekten doğrulanması ya da neden doğrulanamadığının kanıtlanması.
+PR #11'deki e2e senaryolarından çıkanlar ve PR #13'teki çözümleri. Hedef: hiçbir senaryonun "atlandı" ile geçmemesi; ya gerçekten doğrulanması ya da neden doğrulanamadığının kanıtlanması.
 
 | Konu | Durum | Neden | Çözüm yönü |
 | --- | --- | --- | --- |
-| bfcache | 3 tarayıcıda atlanıyor | SDK'sız kontrol sayfası bile Playwright'ın tarayıcılarında bfcache'ten geri gelmiyor; nedeni bilinmiyor (Playwright kaynağında bfcache'i kapatan bir bayrak bulunamadı) | Chromium'da `PerformanceNavigationTiming.notRestoredReasons` ile neden okunup SDK'nın engelleyici olmadığı kanıtlanabilir; ek olarak SDK'nın `unload` / `beforeunload` dinlemediğini doğrulayan birim testi |
-| Sayfadan çıkarken gönderim | Chromium'da atlanıyor | `pagehide` içinde gönderilen düz bir `sendBeacon` bile `true` dönüyor ama Playwright'ın `route` yakalamasına düşmüyor; SDK değil, test altyapısı sınırı | Yakalamayı `route` yerine gerçek bir yerel sahte ingest sunucusuna taşımak (`http://localhost`); ileride gerçek ingest'le uçtan uca teste de temel olur |
+| bfcache | Chromium'da doğrulanıyor; Firefox ve WebKit'te atlanıyor | Chromium: Playwright'ın `--disable-back-forward-cache` bayrağı ve headless shell kapatıyordu (CDP `Page.backForwardCacheNotUsed` ile bulundu). Firefox: Playwright derlemesi bfcache'i ayar ve docShell ile kapatıyor, ayar açılınca `goBack` takılıyor. WebKit: SDK'sız kontrol sayfası da geri gelmiyor | Çözüldü (#13): Chromium yeni headless + bayraksız; geri gelen sayfa `load` tetiklemediği için `goBack` sadece `commit` bekler. Firefox / WebKit için test tarafında yapılacak bir şey yok; SDK'nın `unload` dinlemediğini birim testi doğruluyor |
+| Sayfadan çıkarken / kapanırken gönderim | Sayfadan çıkış 3 tarayıcıda doğrulanıyor; `page.close()` WebKit'te atlanıyor | Playwright'ın `route` yakalaması Chromium'da pagehide beacon'larını görmüyordu. WebKit `page.close()` sırasında düz bir `sendBeacon`'ı da göndermiyor | Çözüldü (#13): yerel sahte ingest sunucusu; WebKit kapanış testi aynı sayfadaki düz `sendBeacon` kontrolü gelmezse atlanır |
 | CLS | Firefox ve WebKit'te ölçülmüyor | Tarayıcılar Layout Instability API'yi desteklemiyor | Test tarafında çözüm yok; test "olay gönderilmez, sayfa kırılmaz" durumunu doğruluyor. Dashboard'da CLS'nin sadece Chromium tabanlı tarayıcılardan geldiği belirtilmeli, README'ye yazılmalı |
 | LCP değerlendirmesi | Çözüldü, izlenmeli | Yavaş açılan Firefox'ta 3 sn gecikmeye açılış süresi eklenip 4 sn'yi geçebiliyor | Test sabit `needs-improvement` yerine eşiklerle tutarlılığı kontrol ediyor; daha kararlı hale getirmek için ölçümden önce ısınma (warm-up) navigasyonu düşünülebilir |
 | LCP görseli | Çözüldü | Chromium düşük entropili (tek renk) görselleri LCP adayı saymıyor | Senaryo rastgele pikselli görsel çiziyor; gerçek sitelerde de logo / düz renkli görsellerin LCP sayılmayacağı README'ye not edilmeli |
 
-- [ ] Sahte ingest sunucusu ile e2e yakalaması (Chromium'da sayfadan çıkış testi açılır)
-- [ ] bfcache: `notRestoredReasons` ile kanıt + `unload` dinlenmediğine dair birim testi
+- [x] Sahte ingest sunucusu ile e2e yakalaması (#13)
+- [x] bfcache: Chromium'da gerçek doğrulama; `unload` dinlenmediğine dair birim testi zaten vardı (#13)
 - [ ] README'ye tarayıcı desteği tablosu (CLS, LCP entropi kuralı)
 ## Ertelenen işler
 
