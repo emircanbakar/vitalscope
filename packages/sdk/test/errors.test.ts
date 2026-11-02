@@ -99,6 +99,28 @@ describe("storm protection", () => {
     expect(collect(raws).reported).toHaveLength(5);
   });
 
+  it("does not let a repeating error crowd out others before processing", () => {
+    // Playground e2e testinde bulundu: 100 tekrar bekleme kuyruğunu doldurup promise reddini düşürüyordu.
+    const reported: VitalscopeError[] = [];
+    const collector = createErrorCollector((e) => reported.push(e), [], vi.fn());
+    for (let i = 0; i < 100; i++) {
+      collector.capture({ error: new Error("repeat"), handled: false, source: "https://ecbakar.com/a.js", line: 1, column: 5 });
+    }
+    collector.capture({ error: new Error("rejected"), handled: false });
+    collector.drain();
+    expect(reported.map((e) => e.msg)).toEqual([...Array(5).fill("repeat"), "rejected"]);
+  });
+
+  it("still treats the same message from different places as different errors", () => {
+    const raws = [1, 2, 3, 4, 5, 6].map((line) => ({
+      error: chromeError("same", [`at f (https://ecbakar.com/a.js:${line}:1)`]),
+      handled: false,
+      source: "https://ecbakar.com/a.js",
+      line,
+    }));
+    expect(collect(raws).reported).toHaveLength(6);
+  });
+
   it("sends at most 50 errors per page", () => {
     const raws = Array.from({ length: 80 }, (_, i) => ({ error: chromeError(`err ${i}`), handled: false }));
     expect(collect(raws).reported).toHaveLength(50);

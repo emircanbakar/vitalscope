@@ -13,6 +13,9 @@ describe("scrubText", () => {
     ["Card 4111111111111111 declined", `Card ${REDACTED} declined`],
     ["GET https://api.test/v1?user=7&token=s3cr3t&lang=tr failed", `GET https://api.test/v1?user=7&token=${REDACTED}&lang=tr failed`],
     ["at f (https://x.test/app.js?api_key=AbC123:1:20)", `at f (https://x.test/app.js?api_key=${REDACTED}`],
+    // Playground e2e testinde bulundu: URL dışındaki `token=` değerleri sızıyordu.
+    ["checkout failed with token=xyz", `checkout failed with token=${REDACTED}`],
+    ['config {"password=hunter2"}', `config {"password=${REDACTED}"}`],
   ])("redacts %s", (input, expected) => {
     expect(scrubText(input)).toBe(expected);
   });
@@ -42,7 +45,9 @@ const secret = fc.oneof(
   fc.stringMatching(/^eyJ[A-Za-z0-9_-]{8,40}$/),
   fc.stringMatching(/^[A-Za-z0-9._~+/-]{8,40}$/).map((t) => `Bearer ${t}`),
   fc.stringMatching(/^[0-9]{13,19}$/),
-  fc.stringMatching(/^[A-Za-z0-9]{4,30}$/).map((v) => `?token=${v}`),
+  fc
+    .tuple(fc.constantFrom("?", "&", " ", "(", ""), fc.stringMatching(/^[A-Za-z0-9]{4,30}$/))
+    .map(([prefix, v]) => `${prefix}token=${v}`),
 );
 const textWithSecret = fc.tuple(filler, secret, filler).map(([a, s, b]) => ({ text: `${a} ${s} ${b}`, s }));
 
