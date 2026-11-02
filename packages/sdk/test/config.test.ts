@@ -11,6 +11,7 @@ describe("resolveConfig", () => {
       endpoint,
       release: undefined,
       environment: "production",
+      sampleRate: 1,
       debug: false,
     });
   });
@@ -24,6 +25,9 @@ describe("resolveConfig", () => {
     ["unparseable endpoint", { key, endpoint: "not a url" }],
     ["unknown environment", { key, endpoint, environment: "staging" }],
     ["too long release", { key, endpoint, release: "x".repeat(65) }],
+    ["sample rate above 1", { key, endpoint, sampleRate: 1.5 }],
+    ["negative sample rate", { key, endpoint, sampleRate: -0.1 }],
+    ["NaN sample rate", { key, endpoint, sampleRate: Number.NaN }],
   ])("rejects %s", (_, input) => {
     expect(resolveConfig(input)).toBeNull();
   });

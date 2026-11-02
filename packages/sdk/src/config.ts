@@ -7,6 +7,8 @@ export interface Config {
   endpoint: string;
   release?: string;
   environment?: "production" | "preview" | "development";
+  /** 0–1 arası; karar sayfa yüklemesi başına bir kez verilir. Varsayılan 1. */
+  sampleRate?: number;
   /** Olayları göndermek yerine konsola yazar. */
   debug?: boolean;
 }
@@ -16,6 +18,7 @@ export interface ResolvedConfig {
   endpoint: string;
   release: string | undefined;
   environment: "production" | "preview" | "development";
+  sampleRate: number;
   debug: boolean;
 }
 
@@ -39,18 +42,22 @@ function isAllowedEndpoint(value: string): boolean {
  */
 export function resolveConfig(input: unknown): ResolvedConfig | null {
   if (typeof input !== "object" || input === null) return null;
-  const { key, endpoint, release, environment, debug } = input as Record<string, unknown>;
+  const { key, endpoint, release, environment, sampleRate, debug } = input as Record<string, unknown>;
 
   if (typeof key !== "string" || !PUBLIC_KEY_PATTERN.test(key)) return null;
   if (typeof endpoint !== "string" || !isAllowedEndpoint(endpoint)) return null;
   if (release !== undefined && (typeof release !== "string" || release.length > LIMITS.maxReleaseLength)) return null;
   if (environment !== undefined && !ENVIRONMENTS.includes(environment as never)) return null;
+  if (sampleRate !== undefined && (typeof sampleRate !== "number" || !(sampleRate >= 0 && sampleRate <= 1))) {
+    return null;
+  }
 
   return {
     key,
     endpoint,
     release,
     environment: (environment as ResolvedConfig["environment"] | undefined) ?? "production",
+    sampleRate: sampleRate ?? 1,
     debug: debug === true,
   };
 }
