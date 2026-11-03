@@ -1,6 +1,7 @@
-import { readdirSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
-import { randomBytes } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { createHash, randomBytes } from "node:crypto";
 import { crc32, deflateSync } from "node:zlib";
 import { defineConfig, type Plugin } from "vite";
 
@@ -71,10 +72,41 @@ function heroImage(emit: boolean): Plugin {
  */
 const ATTRIBUTION = "attribution";
 
+const IIFE_PATH = "iife/vitalscope.iife.js";
+
+/**
+ * SDK'nın script etiketi sürümü, CDN'deki gibi ayrı bir dosya olarak sunulur. SRI değeri (sha384) sayfaya
+ * `__IIFE_INTEGRITY__` olarak verilir; tarayıcı dosyayı bu değerle doğrular.
+ */
+function iifeFile(): { plugin: Plugin; integrity: string } {
+  const source = readFileSync(fileURLToPath(import.meta.resolve("@vitalscope/sdk/vitalscope.iife.js")));
+  const integrity = `sha384-${createHash("sha384").update(source).digest("base64")}`;
+  const plugin: Plugin = {
+    name: "playground-iife",
+    configureServer(server) {
+      server.middlewares.use(`/${IIFE_PATH}`, (_req, res) => {
+        res.setHeader("Content-Type", "text/javascript");
+        res.end(source);
+      });
+    },
+    generateBundle() {
+      this.emitFile({ type: "asset", fileName: IIFE_PATH, source });
+    },
+  };
+  return { plugin, integrity };
+}
+
 export default defineConfig(({ mode }) => {
   const { [ATTRIBUTION]: attribution, ...rest } = pages();
   // Geliştirme sunucusu görseli de sunar; build'de görsel sadece attribution build'inde üretilir.
-  if (mode !== ATTRIBUTION) return { plugins: [heroImage(false)], build: { rolldownOptions: { input: rest } } };
+  if (mode !== ATTRIBUTION) {
+    const iife = iifeFile();
+    return {
+      plugins: [heroImage(false), iife.plugin],
+      define: { __IIFE_INTEGRITY__: JSON.stringify(iife.integrity) },
+      build: { rolldownOptions: { input: rest } },
+    };
+  }
   return {
     plugins: [heroImage(true)],
     build: { emptyOutDir: false, rolldownOptions: { input: { [ATTRIBUTION]: attribution! } } },

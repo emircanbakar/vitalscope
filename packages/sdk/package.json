@@ -1,7 +1,14 @@
 {
   "name": "@vitalscope/sdk",
   "version": "0.0.0",
-  "private": true,
+  "description": "Real user monitoring for Core Web Vitals and JavaScript errors, with zero runtime dependencies",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/emircanbakar/vitalscope.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/emircanbakar/vitalscope/tree/main/packages/sdk#readme",
+  "bugs": "https://github.com/emircanbakar/vitalscope/issues",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -21,7 +28,8 @@
     "./next": {
       "types": "./dist/next.d.mts",
       "default": "./dist/next.mjs"
-    }
+    },
+    "./vitalscope.iife.js": "./dist/vitalscope.iife.js"
   },
   "files": [
     "dist"
@@ -46,6 +54,7 @@
   },
   "devDependencies": {
     "@size-limit/preset-small-lib": "14.3.0",
+    "@types/jsdom": "30.0.0",
     "@types/node": "24.19.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
@@ -59,5 +68,8 @@
     "tsdown": "0.23.4",
     "typescript": "6.0.3",
     "vitest": "5.0.5"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

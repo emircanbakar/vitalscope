@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { readdirSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
@@ -46,5 +47,20 @@ describe("dist", () => {
     for (const file of ["react.mjs", "next.mjs"]) {
       expect(readFileSync(new URL(file, dist), "utf8").startsWith('"use client";')).toBe(true);
     }
+  });
+});
+
+// Yayınlanan paketin dosya listesi (doküman 9.6): beklenmeyen bir dosya pakete girerse test kırılır.
+// Ortak parçaların adındaki içerik hash'i `[hash]` olarak karşılaştırılır.
+describe("npm pack", () => {
+  it("contains only the expected files", () => {
+    const root = new URL("..", import.meta.url);
+    const [pack] = JSON.parse(execFileSync("npm", ["pack", "--dry-run", "--json"], { cwd: root, encoding: "utf8", shell: true }));
+    const files = (pack.files as { path: string }[]).map((f) => f.path.replace(/-[\w-]{8}\.(d\.mts|mjs)$/, "-[hash].$1")).sort();
+    const entries = ["attribution", "index", "next", "react"].flatMap((e) => [`dist/${e}.d.mts`, `dist/${e}.mjs`]);
+    const changelog = existsSync(new URL("CHANGELOG.md", root)) ? ["CHANGELOG.md"] : [];
+    expect(files).toEqual(
+      [...changelog, "LICENSE", "README.md", ...entries, "dist/index-[hash].d.mts", "dist/src-[hash].mjs", "dist/vitalscope.iife.js", "package.json"].sort(),
+    );
   });
 });

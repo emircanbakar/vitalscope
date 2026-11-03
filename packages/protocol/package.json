@@ -1,7 +1,14 @@
 {
   "name": "@vitalscope/protocol",
   "version": "0.0.0",
-  "private": true,
+  "description": "Vitalscope event protocol: schemas, thresholds and limits shared by the SDK and the ingest service",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/emircanbakar/vitalscope.git",
+    "directory": "packages/protocol"
+  },
+  "homepage": "https://github.com/emircanbakar/vitalscope/tree/main/packages/protocol#readme",
+  "bugs": "https://github.com/emircanbakar/vitalscope/issues",
   "license": "MIT",
   "type": "module",
   "exports": {
@@ -30,5 +37,8 @@
   },
   "dependencies": {
     "zod": "4.6.7"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
