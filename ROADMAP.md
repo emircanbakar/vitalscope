@@ -27,7 +27,7 @@ Kurallar: her adım ayrı branch ve PR, CI yeşil olmadan merge yok, PR'lar squa
 | #13 | E2E: yerel sahte ingest | Olaylar `route` yerine bellekte çalışan yerel bir ingest sunucusuna gider; Chromium yeni headless modda ve bfcache'i kapatan Playwright bayrağı olmadan çalışır; kalan atlamalar her çalışmada kontrol deneyiyle (SDK'sız sayfa, düz `sendBeacon`) kararlaştırılır |
 | #15 | Performans bütçeleri | Sadece Chromium'da, diğer testlerden sonra tek başına (`test:perf`): 4× CPU yavaşlatmada `init` < 1 ms (sıcak açılışta ≈ 0,6 ms), SDK betiklerinin hiçbiri 50 ms sürmez (long animation frame betik atfı), SDK'lı / SDK'sız 20'şer ölçümde LCP ve INP medyan farkı bir kareden az. Bütçe için `init` hafifletildi: metrik gözlemcileri ayrı bir task'te kurulur (`buffered`), ilk path temizliği ilk gönderime ertelenir. web-vitals 6.2.3 ile karşılaştırma (3 tarayıcı): TTFB, FCP, LCP birebir, CLS ±0,001, INP ±8 ms |
 
-Durum: 186 birim testi (protokol 52, SDK 134) + 33 e2e testi (11 senaryo × 3 tarayıcı; 30 geçer, 3 kontrol deneyiyle atlanır) + 3 performans testi (Chromium). Boyut minify + gzip (esbuild + gzip -9, #13 itibarıyla): çekirdek 4.723 B, `/react` 4.771 B, `/next` 5.017 B (çekirdek dahil); #15 çekirdeğe ≈ 70 B ekledi (playground build'inde 4.604 → 4.673 B).
+Durum: 186 birim testi (protokol 52, SDK 134) + 33 e2e testi (11 senaryo × 3 tarayıcı; 30 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut minify + gzip (esbuild + gzip -9, #13 itibarıyla): çekirdek 4.723 B, `/react` 4.771 B, `/next` 5.017 B (çekirdek dahil); #15 çekirdeğe ≈ 70 B ekledi (playground build'inde 4.604 → 4.673 B).
 
 ## Sıradaki adımlar
 
@@ -62,13 +62,13 @@ PR #11'deki e2e senaryolarından çıkanlar ve PR #13'teki çözümleri. Hedef: 
 | Sayfadan çıkarken / kapanırken gönderim | Sayfadan çıkış 3 tarayıcıda doğrulanıyor; `page.close()` WebKit'te atlanıyor | Playwright'ın `route` yakalaması Chromium'da pagehide beacon'larını görmüyordu. WebKit `page.close()` sırasında düz bir `sendBeacon`'ı da göndermiyor | Çözüldü (#13): yerel sahte ingest sunucusu; WebKit kapanış testi aynı sayfadaki düz `sendBeacon` kontrolü gelmezse atlanır |
 | CLS | Firefox ve WebKit'te ölçülmüyor | Tarayıcılar Layout Instability API'yi desteklemiyor | Test tarafında çözüm yok; test "olay gönderilmez, sayfa kırılmaz" durumunu doğruluyor. Dashboard'da CLS'nin sadece Chromium tabanlı tarayıcılardan geldiği belirtilmeli, README'ye yazılmalı |
 | LCP değerlendirmesi | Çözüldü, izlenmeli | Yavaş açılan Firefox'ta 3 sn gecikmeye açılış süresi eklenip 4 sn'yi geçebiliyor | Test sabit `needs-improvement` yerine eşiklerle tutarlılığı kontrol ediyor; daha kararlı hale getirmek için ölçümden önce ısınma (warm-up) navigasyonu düşünülebilir |
-| `page.close()` Firefox'ta | Ara sıra kırılıyor (yerelde ≈ %20) | Sayfa kapanırken SDK iki batch gönderebiliyor (gizlenme ve pagehide); Firefox bazen ilkini teslim etmiyor, aynı anda gönderilen düz `sendBeacon` kontrolü ise geliyor. #15 öncesinde de aynı oranda görülüyor | İncelenecek: gizlenmede gönderilen batch'in kaybolma nedeni; gerekirse kapanışta tek batch |
+| `page.close()` Firefox'ta | Çoğunlukla doğrulanıyor; olay eksik ve kesinti kanıtlıysa atlanıyor (yerelde 40'ta ≈ 5) | Playwright'ın Firefox'u kapanışta o an çalışan pagehide betiğini yarıda kesiyor (`finally` bile çalışmıyor); kesinti SDK'nın dinleyicisine denk gelirse batch hiç gönderilmiyor. Firefox kapanışta önce pagehide, sonra visibilitychange tetikliyor. SDK hatası değil: önüne yoğun bir dinleyici konunca 60/60 geliyor | Çözüldü (#15): test her pagehide dinleyicisini sarar, en sondaki kontrol beacon'ı yarıda kalan olup olmadığını bildirir |
 | LCP görseli | Çözüldü | Chromium düşük entropili (tek renk) görselleri LCP adayı saymıyor | Senaryo rastgele pikselli görsel çiziyor; gerçek sitelerde de logo / düz renkli görsellerin LCP sayılmayacağı README'ye not edilmeli |
 
 - [x] Sahte ingest sunucusu ile e2e yakalaması (#13)
 - [x] bfcache: Chromium'da gerçek doğrulama; `unload` dinlenmediğine dair birim testi zaten vardı (#13)
 - [ ] README'ye tarayıcı desteği tablosu (CLS, LCP entropi kuralı)
-- [ ] Firefox'ta `page.close()` sırasında kaybolan batch
+- [x] Firefox'ta `page.close()` sırasında kaybolan batch: Playwright kesintisi, kanıtlı atlama (#15)
 
 ## Ertelenen işler
 
