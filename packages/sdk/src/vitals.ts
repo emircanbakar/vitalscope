@@ -1,13 +1,33 @@
-import type { MetricName } from "@vitalscope/protocol";
+import type { Attribution, MetricName } from "@vitalscope/protocol";
 import { getActivationStart, getNavigationEntry } from "./navigation-timing.js";
 
 // Ölçüm kuralları web.dev'deki resmi metrik tanımlarını izler; runtime bağımlılığı yoktur.
 
-export type ReportMetric = (name: MetricName, value: number, id: string) => void;
+export type ReportMetric = (name: MetricName, value: number, id: string, attr?: Attribution) => void;
 
-interface LayoutShift extends PerformanceEntry {
+export interface LayoutShift extends PerformanceEntry {
   value: number;
   hadRecentInput: boolean;
+}
+
+/**
+ * "Neden yavaş" bilgisini üretir. Sadece `@vitalscope/sdk/attribution` kurar; çekirdek bu kodu içermez,
+ * metrik ölçümü sadece ilgili girdiyi verir.
+ */
+export interface Attributor {
+  /** Ek gözlemcileri (ör. long animation frame) başlatır; durdurma fonksiyonu döner. */
+  observe(supported: readonly string[]): () => void;
+  lcp(entry: PerformanceEntry): Attribution | undefined;
+  /** En büyük CLS penceresindeki en büyük kayma. */
+  cls(shift: LayoutShift): Attribution | undefined;
+  /** En kötü etkileşimin tüm girdileri. */
+  inp(entries: PerformanceEventTiming[]): Attribution | undefined;
+}
+
+let attributor: Attributor | undefined;
+
+export function setAttributor(value: Attributor): void {
+  attributor = value;
 }
 
 /** CLS oturum penceresi: kaymalar arası < 1 sn, pencere toplamı ≤ 5 sn. */
@@ -23,6 +43,7 @@ const newId = () => `${Date.now()}-${Math.floor(Math.random() * 9e12) + 1e12}`;
 export function startVitals(report: ReportMetric): () => void {
   const cleanups: (() => void)[] = [];
   const supported = typeof PerformanceObserver === "function" ? PerformanceObserver.supportedEntryTypes ?? [] : [];
+  if (attributor) cleanups.push(attributor.observe(supported));
 
   function observe(type: string, handle: (entries: PerformanceEntry[]) => void, extra?: object) {
     if (!supported.includes(type)) return undefined;
@@ -75,7 +96,7 @@ export function startVitals(report: ReportMetric): () => void {
     lcpDone = true;
     lcpObserver?.flush();
     lcpObserver?.stop();
-    if (lcp) report("LCP", relative(lcp.startTime), newId());
+    if (lcp) report("LCP", relative(lcp.startTime), newId(), attributor?.lcp(lcp));
   };
   on(window, "keydown", finalizeLcp);
   on(window, "pointerdown", finalizeLcp);
@@ -86,6 +107,9 @@ export function startVitals(report: ReportMetric): () => void {
   let sessionValue = 0;
   let sessionStart = 0;
   let sessionLast = 0;
+  // Attribution için: o anki pencerenin ve en büyük CLS penceresinin en büyük kayması.
+  let sessionLargest: LayoutShift | undefined;
+  let clsLargest: LayoutShift | undefined;
   let clsId = newId();
   let clsReported = -1;
   const clsObserver = observe("layout-shift", (entries) => {
@@ -97,12 +121,17 @@ export function startVitals(report: ReportMetric): () => void {
         shift.startTime - sessionStart < CLS_WINDOW_MS;
       if (sameSession) {
         sessionValue += shift.value;
+        if (shift.value > sessionLargest!.value) sessionLargest = shift;
       } else {
         sessionValue = shift.value;
         sessionStart = shift.startTime;
+        sessionLargest = shift;
       }
       sessionLast = shift.startTime;
-      cls = Math.max(cls, sessionValue);
+      if (sessionValue > cls) {
+        cls = sessionValue;
+        clsLargest = sessionLargest;
+      }
     }
   });
   onHidden(() => {
@@ -110,11 +139,12 @@ export function startVitals(report: ReportMetric): () => void {
     clsObserver.flush();
     if (cls === clsReported) return;
     clsReported = cls;
-    report("CLS", cls, clsId);
+    report("CLS", cls, clsId, clsLargest && attributor?.cls(clsLargest));
   });
 
   // INP: etkileşim başına en uzun süre; en kötü 10 tutulur, her 50 etkileşimde bir en kötü atlanır.
-  let worst: { id: number; duration: number }[] = [];
+  // Etkileşimin tüm girdileri (pointerdown, pointerup, click…) attribution için tutulur.
+  let worst: { id: number; duration: number; entries: PerformanceEventTiming[] }[] = [];
   let seenInteractions = 0;
   let inpId = newId();
   let inpReported = -1;
@@ -124,10 +154,11 @@ export function startVitals(report: ReportMetric): () => void {
       const existing = worst.find((w) => w.id === entry.interactionId);
       if (existing) {
         existing.duration = Math.max(existing.duration, entry.duration);
+        existing.entries.push(entry);
         continue;
       }
       seenInteractions++;
-      worst.push({ id: entry.interactionId, duration: entry.duration });
+      worst.push({ id: entry.interactionId, duration: entry.duration, entries: [entry] });
       worst.sort((a, b) => b.duration - a.duration);
       worst.length = Math.min(worst.length, INP_KEEP);
     }
@@ -139,16 +170,18 @@ export function startVitals(report: ReportMetric): () => void {
     firstInputObserver?.flush();
     if (worst.length === 0) return;
     const interactions = performance.interactionCount || seenInteractions;
-    const value = worst[Math.min(worst.length - 1, Math.floor(interactions / INP_SKIP_EVERY))]!.duration;
+    const interaction = worst[Math.min(worst.length - 1, Math.floor(interactions / INP_SKIP_EVERY))]!;
+    const value = interaction.duration;
     if (value === inpReported) return;
     inpReported = value;
-    report("INP", value, inpId);
+    report("INP", value, inpId, attributor?.inp(interaction.entries));
   });
 
   // bfcache'ten dönüşte CLS ve INP yeni bir ölçüm olarak baştan başlar.
   on(window, "pageshow", (event) => {
     if (!(event as PageTransitionEvent).persisted) return;
     cls = sessionValue = sessionStart = sessionLast = 0;
+    sessionLargest = clsLargest = undefined;
     clsReported = -1;
     clsId = newId();
     worst = [];

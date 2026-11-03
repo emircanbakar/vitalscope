@@ -1,6 +1,6 @@
 # Yol haritası ve durum
 
-Son güncelleme: 3 Kasım 2026 (main: `d1d4921`)
+Son güncelleme: 3 Kasım 2026 (main: `943b58c`)
 
 Vitalscope, sitelerin gerçek kullanıcı performansını (Core Web Vitals) ve JavaScript hatalarını izleyen, açık kaynak ve self-host edilebilir bir platformdur. Üç parçadan oluşur:
 
@@ -26,14 +26,16 @@ Kurallar: her adım ayrı branch ve PR, CI yeşil olmadan merge yok, PR'lar squa
 | #11 | Playground + Playwright (senaryolar) | `apps/playground`: slow-lcp, janky-button, layout-shift, throws, spa, pii, bfcache, sıkı CSP + Trusted Types; Chromium, Firefox, WebKit'te build edilmiş sitede; her istek protokol şemasıyla doğrulanır; CI'da `e2e` işi. Bulunan iki hata düzeltildi: URL dışındaki `token=` sızıntısı, tekrar eden hatanın farklı hataları düşürmesi |
 | #13 | E2E: yerel sahte ingest | Olaylar `route` yerine bellekte çalışan yerel bir ingest sunucusuna gider; Chromium yeni headless modda ve bfcache'i kapatan Playwright bayrağı olmadan çalışır; kalan atlamalar her çalışmada kontrol deneyiyle (SDK'sız sayfa, düz `sendBeacon`) kararlaştırılır |
 | #15 | Performans bütçeleri | Sadece Chromium'da, diğer testlerden sonra tek başına (`test:perf`): orta seviye mobil CPU'da `init` < 1 ms (sıcak açılışların medyanı ≈ 0,6–0,8 ms; yavaşlatma oranı Lighthouse gibi makinenin hızına göre kalibre edilir, referans makinede ≈ 4×), SDK betiklerinin hiçbiri 50 ms sürmez (long animation frame betik atfı), SDK'lı / SDK'sız 20'şer ölçümde LCP ve INP medyan farkı bir kareden az. Bütçe için `init` hafifletildi: metrik gözlemcileri ayrı bir task'te kurulur (`buffered`), ilk path temizliği ilk gönderime ertelenir. web-vitals 6.2.3 ile karşılaştırma (3 tarayıcı): TTFB, FCP, LCP birebir, CLS ±0,001, INP ±8 ms |
+| #16 | Attribution build'i ve boyut bütçeleri | `@vitalscope/sdk/attribution`: çekirdekle aynı API, metrik olaylarına `attr` eklenir. LCP: eleman seçicisi, görsel adresi (sadece http(s), query/hash atılır, path temizlenir), TTFB / yükleme gecikmesi / yükleme süresi / render gecikmesi. INP: hedef seçici, `pointer` / `keyboard`, etkileşimin en uzun olayıyla aynı karede biten olaylarından girdi gecikmesi / işleme / sunum, destekleyen tarayıcıda en uzun betik (long animation frame). CLS: en büyük penceredeki en büyük kaymanın elemanı ve zamanı. Seçiciler sadece etiket, id, sınıf; en fazla 100 karakter. Attribution hatası metriği düşürmez. `size-limit` CI'da (gzip, bağımlılıklar dahil) |
 
-Durum: 186 birim testi (protokol 52, SDK 134) + 33 e2e testi (11 senaryo × 3 tarayıcı; 30 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut minify + gzip (esbuild + gzip -9, #13 itibarıyla): çekirdek 4.723 B, `/react` 4.771 B, `/next` 5.017 B (çekirdek dahil); #15 çekirdeğe ≈ 70 B ekledi (playground build'inde 4.604 → 4.673 B).
+Durum: 196 birim testi (protokol 52, SDK 144) + 36 e2e testi (12 senaryo × 3 tarayıcı; 33 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut (`size-limit`, minify + gzip, bağımlılıklar dahil) ve bütçe: çekirdek 4,76 / 5 kB, attribution 5,6 / 5,8 kB, `/react` 4,66 / 4,9 kB, `/next` 4,9 / 5,15 kB.
+
+**Boyut bütçesi kararı (#16):** dokümandaki çekirdek < 3 KB ve attribution < 5 KB tutmuyor. Çekirdeği 3 KB'a indirmek için yaklaşık üçte birini (hata yakalama, SPA takibi gibi) ayrı giriş noktalarına taşımak gerekirdi. Bunun yerine bütçeler ölçülen boyutun ≈ %5 üstüne kondu; CI büyümeyi engeller. Not: playground'da attribution sayfası ayrı build edilir; aynı build'de SDK ortak bir parçaya taşınıyor ve `init` sıcak açılışta ≈ 0,2 ms (4× yavaşlatmada) yavaşlıyordu. SDK'yı ayrı bir chunk'a koyan sitelerde de benzer bir fark beklenebilir.
 
 ## Sıradaki adımlar
 
 ### SDK
 
-- [ ] **Attribution build'i ve boyut bütçeleri:** attribution < 5 KB, size-limit CI'da; 3 KB çekirdek bütçesi kararı bu adımda verilecek
 - [ ] **Yayın:** IIFE build (`window.vitalscope`, dondurulmuş), SRI hash'leri, trusted publishing + provenance, `0.1.0`
 - [ ] **Dogfooding:** enflasyon uygulaması ve ecbakar.com'a kurulum
 
@@ -77,7 +79,7 @@ PR #11'deki e2e senaryolarından çıkanlar ve PR #13'teki çözümleri. Hedef: 
 - [ ] `init` ikinci kez çağrılınca geliştirme modunda uyarı
 - [ ] `sid` için isteğe bağlı `sessionStorage`
 - [ ] SPA içi (soft navigation) metrikler: INP ve CLS sayfa gizlenince raporlanır, o anki rotaya atanır
-- [ ] Çekirdek boyut bütçesi: dokümanda 3 KB, şu an 4.646 B (attribution / boyut adımında karar)
+- [ ] React / Next provider'ları için attribution seçeneği (şu an sadece çekirdek `init`'i çağırıyorlar)
 
 ## Güvenlik ve kalite eksikleri
 

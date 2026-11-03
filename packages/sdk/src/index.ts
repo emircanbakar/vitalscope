@@ -1,4 +1,13 @@
-import { getRating, LIMITS, scrubPath, type CustomEvent, type Event, type MetricName } from "@vitalscope/protocol";
+import {
+  getRating,
+  LIMITS,
+  scrubPath,
+  type Attribution,
+  type CustomEvent,
+  type Event,
+  type MetricName,
+  type VitalEvent,
+} from "@vitalscope/protocol";
 import { resolveConfig, type Config, type ResolvedConfig } from "./config.js";
 import { buildContext, createSessionId, getPath, markRestored, type PageUrl } from "./context.js";
 import { createErrorCollector } from "./errors.js";
@@ -105,8 +114,10 @@ const onRouteChange = safe(() => {
   enqueue({ t: "pageview", ts: Date.now() });
 });
 
-const reportMetric = safe((name: MetricName, value: number, id: string) => {
-  enqueue({ t: "vital", ts: Date.now(), name, value, rating: getRating(name, value), id });
+const reportMetric = safe((name: MetricName, value: number, id: string, attr?: Attribution) => {
+  const event: VitalEvent = { t: "vital", ts: Date.now(), name, value, rating: getRating(name, value), id };
+  if (attr) event.attr = attr;
+  enqueue(event);
 });
 
 // Mevcut `window.onerror` ezilmez; hata yutulmaz, sadece gözlemlenir.
