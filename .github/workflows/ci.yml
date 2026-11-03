@@ -30,6 +30,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      # Boyut bütçeleri (gzip, tüm bağımlılıklarla); sınırlar packages/sdk/.size-limit.json içinde.
+      - run: pnpm --filter @vitalscope/sdk size
 
   e2e:
     runs-on: ubuntu-latest
