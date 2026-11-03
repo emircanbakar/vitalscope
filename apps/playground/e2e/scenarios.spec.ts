@@ -139,22 +139,58 @@ test("events survive leaving the page", async ({ page }) => {
 
 test("events survive closing the page", async ({ page }) => {
   const ingest = await captureIngest(page);
+  // Playwright'ın Firefox'u kapanışta o an çalışan pagehide betiğini arada bir yarıda kesiyor (`finally`
+  // bile çalışmıyor). Her pagehide dinleyicisi sarılır; yarıda kalan olursa sonuç SDK hakkında bir şey söylemez.
+  await page.addInitScript(() => {
+    const unfinished = new Set<number>();
+    (globalThis as { __unfinishedPagehide?: Set<number> }).__unfinishedPagehide = unfinished;
+    const add = EventTarget.prototype.addEventListener;
+    let next = 0;
+    EventTarget.prototype.addEventListener = function (type, listener, options) {
+      if (type !== "pagehide" || typeof listener !== "function") return add.call(this, type, listener, options);
+      const id = next++;
+      return add.call(
+        this,
+        type,
+        function (this: unknown, event: Event) {
+          unfinished.add(id);
+          listener.call(this, event);
+          unfinished.delete(id);
+        },
+        options,
+      );
+    };
+  });
   await page.goto("/spa/");
   await expect(page).toHaveURL(/\/spa\/c$/);
-  // Kontrol: aynı sayfada pagehide içinde düz bir sendBeacon. O da gelmezse sonuç SDK hakkında bir şey söylemez.
+  // Kontrol: SDK'dan sonra pagehide içinde düz bir sendBeacon; önceki dinleyicilerden yarıda kalan var mı, onu da bildirir.
   const probe = `${ingest.run}-probe`;
   await page.evaluate((id) => {
-    addEventListener("pagehide", () => navigator.sendBeacon(`http://127.0.0.1:4174/v1/e/${id}`, "probe"));
+    const unfinished = (globalThis as { __unfinishedPagehide?: Set<number> }).__unfinishedPagehide;
+    window.addEventListener("pagehide", () =>
+      // Bu dinleyici de sarılı ve şu an çalışıyor: kendisi dışında yarıda kalan var mı?
+      navigator.sendBeacon(`http://127.0.0.1:4174/v1/e/${id}`, (unfinished?.size ?? 0) > 1 ? "interrupted" : "ok"),
+    );
   }, probe);
   await page.close({ runBeforeUnload: true });
 
-  const probeArrived = await expect
+  const probeBody = await expect
     .poll(async () => (await bodiesOf(probe)).length, { timeout: 3000 })
     .toBe(1)
     .then(
+      async () => (await bodiesOf(probe))[0],
+      () => undefined,
+    );
+  test.skip(probeBody === undefined, "this browser does not deliver beacons sent while page.close() runs");
+  const pageviews = expect.poll(async () => (await ingest.events()).filter((e) => e.t === "pageview").length).toBe(4);
+  // Kesinti çoğu zaman başka bir dinleyiciye denk gelir; sadece olay eksikse ve kesinti kanıtlıysa atlanır.
+  if (probeBody === "interrupted") {
+    const delivered = await pageviews.then(
       () => true,
       () => false,
     );
-  test.skip(!probeArrived, "this browser does not deliver beacons sent while page.close() runs");
-  await expect.poll(async () => (await ingest.events()).filter((e) => e.t === "pageview").length).toBe(4);
+    test.skip(!delivered, "the browser cut a pagehide listener short while closing the page");
+  } else {
+    await pageviews;
+  }
 });
