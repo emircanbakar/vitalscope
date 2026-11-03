@@ -11,3 +11,5 @@ coverage/
 # Playwright
 test-results/
 playwright-report/
+*.tgz
+release-notes.md
