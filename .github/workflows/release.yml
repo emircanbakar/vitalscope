@@ -3,9 +3,11 @@ name: Release
 # main'e her push'ta:
 # 1. `version`: bekleyen changeset varsa "chore(repo): version packages" PR'ını açar / günceller.
 #    Changeset kalmadıysa npm'de henüz olmayan sürümleri bulur.
-# 2. `publish`: yayınlanacak sürüm varsa `npm` ortamında (elle onay) trusted publishing (OIDC) ile yayınlar.
-#    NPM_TOKEN yoktur; provenance otomatik eklenir. Her sürüm için GitHub release'i açılır ve
-#    SDK notuna dist dosyalarının SHA-384 özetleri ve script etiketi için SRI değeri yazılır.
+# 2. `publish`: yayınlanacak sürüm varsa `npm` ortamında (sadece main) trusted publishing (OIDC) ile yayınlar.
+#    NPM_TOKEN yoktur. Yayının kontrol noktası sürüm PR'ının merge'üdür: private repoda ortam onaylayıcısı
+#    kurulamıyor. Repo private olduğu için provenance da kapalıdır (npm sadece public repoda üretir).
+#    Her sürüm için GitHub release'i açılır; SDK notuna dist dosyalarının SHA-384 özetleri ve script
+#    etiketi için SRI değeri yazılır.
 
 on:
   push:
@@ -71,3 +73,5 @@ jobs:
       - run: node scripts/release.ts publish
         env:
           GH_TOKEN: ${{ github.token }}
+          # Trusted publishing provenance'ı kendiliğinden ekler; private repoda bu yayını kırar.
+          NPM_CONFIG_PROVENANCE: "false"

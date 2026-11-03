@@ -7,4 +7,4 @@ The event protocol shared by `@vitalscope/sdk` and the Vitalscope ingest service
 
 The protocol is versioned (`v` in every batch). A breaking change bumps the major version of this package and `PROTOCOL_VERSION`.
 
-Every version is published from GitHub Actions with npm provenance. Check it with `npm audit signatures`.
+Every version is published only from GitHub Actions, through npm trusted publishing (no long-lived tokens).

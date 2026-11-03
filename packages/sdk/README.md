@@ -27,7 +27,13 @@ init({
 
 ## Script tag
 
-Always pin the version and use the `integrity` value from the [GitHub release](https://github.com/emircanbakar/vitalscope/releases) of that version. Self-hosting `dist/vitalscope.iife.js` is the safest option.
+Always pin the version and set `integrity`. Compute it from the file of that exact version:
+
+```bash
+curl -s https://cdn.jsdelivr.net/npm/@vitalscope/sdk@<version>/dist/vitalscope.iife.js | openssl dgst -sha384 -binary | openssl base64 -A
+```
+
+Prefix the result with `sha384-`. Self-hosting `dist/vitalscope.iife.js` is the safest option.
 
 ```html
 <script async
@@ -46,4 +52,4 @@ Your site's CSP needs only the ingest address in `connect-src`. Metrics belong t
 
 ## Verifying a release
 
-Every version is published from GitHub Actions with npm provenance. Check it with `npm audit signatures`.
+Every version is published only from GitHub Actions, through npm trusted publishing (no long-lived tokens).
