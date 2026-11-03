@@ -6,8 +6,11 @@ import { init } from "@vitalscope/sdk";
  */
 const run = (globalThis as { __vitalscopeRun?: string }).__vitalscopeRun ?? "manual";
 
+// `init` süresi performans bütçesi testinde okunur.
+const start = performance.now();
 init({
   key: "pk_3f9a0c1d2e4b5a6978c0d1e2",
   endpoint: `http://127.0.0.1:4174/v1/e/${run}`,
   environment: "development",
 });
+performance.measure("vitalscope:init", { start });
