@@ -1,6 +1,6 @@
 import { getRating, LIMITS, scrubPath, type CustomEvent, type Event, type MetricName } from "@vitalscope/protocol";
 import { resolveConfig, type Config, type ResolvedConfig } from "./config.js";
-import { buildContext, createSessionId, getPath, markRestored } from "./context.js";
+import { buildContext, createSessionId, getPath, markRestored, type PageUrl } from "./context.js";
 import { createErrorCollector } from "./errors.js";
 import { isPrerendering } from "./navigation-timing.js";
 import { watchRoutes } from "./spa.js";
@@ -20,7 +20,9 @@ interface State {
   config: ResolvedConfig;
   sid: string;
   /** Kuyruktaki olayların ait olduğu sayfa; rota değişince önce kuyruk gönderilir, sonra güncellenir. */
-  path: string;
+  path: string | undefined;
+  /** İlk sayfanın ham URL'i: temizleme regex'leri `init`i yavaşlatmasın diye path ilk gerektiğinde üretilir. */
+  initialUrl: PageUrl;
   route: string | undefined;
   queue: Event[];
   timer: ReturnType<typeof setTimeout> | undefined;
@@ -30,6 +32,10 @@ interface State {
 }
 
 let state: State | undefined;
+
+function pathOf(s: State): string {
+  return (s.path ??= getPath(s.config.keepQuery, s.initialUrl));
+}
 let initialized = false;
 
 /** SDK'nın kendi hatası sitenin hatasına dönüşmez: her dış giriş noktası bununla sarılır. */
@@ -70,7 +76,7 @@ function flushNow(): void {
   const events = state.queue;
   state.queue = [];
   const { config } = state;
-  const header = { k: config.key, sdk: __SDK_VERSION__, ctx: buildContext(config, state.sid, state.path, state.route) };
+  const header = { k: config.key, sdk: __SDK_VERSION__, ctx: buildContext(config, state.sid, pathOf(state), state.route) };
 
   for (const body of encodeBatches(header, events)) {
     if (config.debug) console.debug("[vitalscope]", JSON.parse(body));
@@ -92,7 +98,7 @@ const onPageShow = safe((event: PageTransitionEvent) => {
 const onRouteChange = safe(() => {
   if (!state) return;
   const path = getPath(state.config.keepQuery);
-  if (path === state.path) return;
+  if (path === pathOf(state)) return;
   flushNow();
   state.path = path;
   state.route = undefined;
@@ -144,7 +150,8 @@ export const init = safe((config: Config): void => {
   state = {
     config: resolved,
     sid: createSessionId(),
-    path: getPath(resolved.keepQuery),
+    path: undefined,
+    initialUrl: { pathname: location.pathname, search: location.search },
     route: undefined,
     queue: [],
     timer: undefined,
@@ -161,7 +168,14 @@ export const init = safe((config: Config): void => {
     addEventListener("unhandledrejection", onRejection);
   }
   enqueue({ t: "pageview", ts: Date.now() });
-  state.stopVitals = startVitals(reportMetric);
+  // Metrik gözlemcileri ayrı bir task'te kurulur: `init` sitenin betiğini bekletmez. Gözlemciler
+  // `buffered` olduğu için o ana kadarki girdiler kaybolmaz; `disable` önce gelirse kurulum yapılmaz.
+  const active = state;
+  setTimeout(
+    safe(() => {
+      if (state === active) active.stopVitals = startVitals(reportMetric);
+    }),
+  );
   if (resolved.trackSpa) state.stopRoutes = watchRoutes(onRouteChange);
 });
 
