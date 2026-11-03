@@ -1,6 +1,6 @@
 # Yol haritası ve durum
 
-Son güncelleme: 3 Kasım 2026 (main: `943b58c`)
+Son güncelleme: 3 Kasım 2026 (main: `44aee6d`)
 
 Vitalscope, sitelerin gerçek kullanıcı performansını (Core Web Vitals) ve JavaScript hatalarını izleyen, açık kaynak ve self-host edilebilir bir platformdur. Üç parçadan oluşur:
 
@@ -27,8 +27,9 @@ Kurallar: her adım ayrı branch ve PR, CI yeşil olmadan merge yok, PR'lar squa
 | #13 | E2E: yerel sahte ingest | Olaylar `route` yerine bellekte çalışan yerel bir ingest sunucusuna gider; Chromium yeni headless modda ve bfcache'i kapatan Playwright bayrağı olmadan çalışır; kalan atlamalar her çalışmada kontrol deneyiyle (SDK'sız sayfa, düz `sendBeacon`) kararlaştırılır |
 | #15 | Performans bütçeleri | Sadece Chromium'da, diğer testlerden sonra tek başına (`test:perf`): orta seviye mobil CPU'da `init` < 1 ms (sıcak açılışların medyanı ≈ 0,6–0,8 ms; yavaşlatma oranı Lighthouse gibi makinenin hızına göre kalibre edilir, referans makinede ≈ 4×), SDK betiklerinin hiçbiri 50 ms sürmez (long animation frame betik atfı), SDK'lı / SDK'sız 20'şer ölçümde LCP ve INP medyan farkı bir kareden az. Bütçe için `init` hafifletildi: metrik gözlemcileri ayrı bir task'te kurulur (`buffered`), ilk path temizliği ilk gönderime ertelenir. web-vitals 6.2.3 ile karşılaştırma (3 tarayıcı): TTFB, FCP, LCP birebir, CLS ±0,001, INP ±8 ms |
 | #16 | Attribution build'i ve boyut bütçeleri | `@vitalscope/sdk/attribution`: çekirdekle aynı API, metrik olaylarına `attr` eklenir. LCP: eleman seçicisi, görsel adresi (sadece http(s), query/hash atılır, path temizlenir), TTFB / yükleme gecikmesi / yükleme süresi / render gecikmesi. INP: hedef seçici, `pointer` / `keyboard`, etkileşimin en uzun olayıyla aynı karede biten olaylarından girdi gecikmesi / işleme / sunum, destekleyen tarayıcıda en uzun betik (long animation frame). CLS: en büyük penceredeki en büyük kaymanın elemanı ve zamanı. Seçiciler sadece etiket, id, sınıf; en fazla 100 karakter. Attribution hatası metriği düşürmez. `size-limit` CI'da (gzip, bağımlılıklar dahil) |
+| #17 | Yayın hazırlığı | `dist/vitalscope.iife.js`: tek global, dondurulmuş `window.vitalscope`; etiketin `data-key` / `data-endpoint` / `data-release` / `data-environment` özellikleriyle kendiliğinden başlar. Playground'da SRI ile yüklenir, değiştirilmiş dosyayı tarayıcı engeller (3 tarayıcı). `release.yml`: Changesets sürüm PR'ı; yayınlanmamış sürüm varsa `npm` ortamında (elle onay) trusted publishing (OIDC, token yok, provenance otomatik) ve GitHub release'i (dist SHA-384 özetleri + script etiketi SRI'ı). Paketler yayınlanabilir: `private` kalktı, README, LICENSE, `repository`; `npm pack` dosya listesi testte. İlk changeset: iki paket `0.1.0` |
 
-Durum: 196 birim testi (protokol 52, SDK 144) + 36 e2e testi (12 senaryo × 3 tarayıcı; 33 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut (`size-limit`, minify + gzip, bağımlılıklar dahil) ve bütçe: çekirdek 4,76 / 5 kB, attribution 5,6 / 5,8 kB, `/react` 4,66 / 4,9 kB, `/next` 4,9 / 5,15 kB.
+Durum: 202 birim testi (protokol 53, SDK 149) + 42 e2e testi (14 senaryo × 3 tarayıcı; 38 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut (`size-limit`, minify + gzip, bağımlılıklar dahil) ve bütçe: çekirdek 4,76 / 5 kB, attribution 5,6 / 5,8 kB, `/react` 4,66 / 4,9 kB, `/next` 4,9 / 5,15 kB, IIFE 4,83 / 5,1 kB.
 
 **Boyut bütçesi kararı (#16):** dokümandaki çekirdek < 3 KB ve attribution < 5 KB tutmuyor. Çekirdeği 3 KB'a indirmek için yaklaşık üçte birini (hata yakalama, SPA takibi gibi) ayrı giriş noktalarına taşımak gerekirdi. Bunun yerine bütçeler ölçülen boyutun ≈ %5 üstüne kondu; CI büyümeyi engeller. Not: playground'da attribution sayfası ayrı build edilir; aynı build'de SDK ortak bir parçaya taşınıyor ve `init` sıcak açılışta ≈ 0,2 ms (4× yavaşlatmada) yavaşlıyordu. SDK'yı ayrı bir chunk'a koyan sitelerde de benzer bir fark beklenebilir.
 
@@ -36,7 +37,7 @@ Durum: 196 birim testi (protokol 52, SDK 144) + 36 e2e testi (12 senaryo × 3 ta
 
 ### SDK
 
-- [ ] **Yayın:** IIFE build (`window.vitalscope`, dondurulmuş), SRI hash'leri, trusted publishing + provenance, `0.1.0`
+- [ ] **İlk yayın (`0.1.0`):** kod #17 ile hazır; "Elle yapılacaklar"daki npm ve GitHub adımlarından sonra sürüm PR'ı merge edilir ve yayın onaylanır
 - [ ] **Dogfooding:** enflasyon uygulaması ve ecbakar.com'a kurulum
 
 ### Platform
@@ -86,14 +87,15 @@ PR #11'deki e2e senaryolarından çıkanlar ve PR #13'teki çözümleri. Hedef: 
 - [ ] ESLint ile tehlikeli API yasağı (`eval`, `new Function`, `innerHTML`, `document.write` vb.)
 - [ ] CodeQL, Dependabot (haftalık, gruplu), OpenSSF Scorecard
 - [ ] `SECURITY.md`
-- [ ] CI'da `pnpm audit --prod`, boş `dependencies` kontrolü, `pnpm pack --dry-run` snapshot'ı
+- [ ] CI'da `pnpm audit --prod` (boş `dependencies` ve `npm pack` dosya listesi testlerde, #17)
 - [ ] Kapsam eşikleri: SDK ≥ %95, temizleme ve taşıma %100
-- [ ] README (kurulum, gizlilik notu, SPA sınırlaması)
+- [ ] Kök README ve tam dokümantasyon (paket README'leri #17'de kısa haliyle var; self-host adımları, referans kütüphaneyle uyum tablosu, tarayıcı desteği)
 
 ## Elle yapılacaklar
 
 - [ ] GitHub güvenlik ayarları: secret scanning, push protection, branch protection
-- [ ] npm'de `@vitalscope` organizasyonu
+- [ ] npm: `@vitalscope` organizasyonu; `@vitalscope/sdk` ve `@vitalscope/protocol` için `0.0.0` yer tutucu yayın (trusted publisher sadece var olan pakete tanımlanabiliyor; iş ağında `--registry https://registry.npmjs.org/` gerekir); her pakete trusted publisher (`emircanbakar` / `vitalscope` / `release.yml` / ortam `npm`); ilk OIDC yayınından sonra "Require two-factor authentication and disallow tokens"
+- [ ] GitHub: `npm` ortamı (onaylayıcı sen, sadece `main`); Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests" (Changesets sürüm PR'ı için)
 - [ ] İki GitHub OAuth uygulaması (geliştirme ve canlı)
 - [ ] Alan adı ve VPS (ClickHouse için en az 8 GB RAM)
 - [ ] Docker kurulumu (altyapı adımı için)
