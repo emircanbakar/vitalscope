@@ -1,6 +1,6 @@
 import { Batch } from "@vitalscope/protocol/schema";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { emit, installFakePerformance, setVisibility } from "./fake-performance.js";
+import { emit, installFakePerformance, observerFor, setVisibility } from "./fake-performance.js";
 
 type Sdk = typeof import("../src/index.js");
 
@@ -39,8 +39,11 @@ afterEach(() => {
 
 describe("vital events", () => {
   it("are sent with a rating and pass the protocol schema", () => {
+    vi.useFakeTimers();
     installFakePerformance({ navigation: { responseStart: 2000, type: "navigate" } });
     sdk.init(config);
+    vi.advanceTimersByTime(0);
+    vi.useRealTimers();
     emit("largest-contentful-paint", [{ startTime: 1730 }]);
     emit("layout-shift", [{ startTime: 0, value: 0.3, hadRecentInput: false }]);
     setVisibility("hidden");
@@ -51,6 +54,26 @@ describe("vital events", () => {
       ["LCP", 1730, "good"],
       ["CLS", 0.3, "poor"],
     ]);
+  });
+
+  it("are observed from a later task, so init stays short", () => {
+    vi.useFakeTimers();
+    installFakePerformance();
+    sdk.init(config);
+    expect(observerFor("largest-contentful-paint")).toBeUndefined();
+    vi.advanceTimersByTime(0);
+    expect(observerFor("largest-contentful-paint")?.options).toMatchObject({ buffered: true });
+    vi.useRealTimers();
+  });
+
+  it("are not observed when the SDK is disabled before that task", () => {
+    vi.useFakeTimers();
+    installFakePerformance();
+    sdk.init(config);
+    sdk.disable();
+    vi.advanceTimersByTime(0);
+    expect(observerFor("largest-contentful-paint")).toBeUndefined();
+    vi.useRealTimers();
   });
 });
 

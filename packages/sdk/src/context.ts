@@ -37,16 +37,18 @@ function getNavigationType(): ContextInput["nav"] {
   return type !== undefined && NAV_TYPES.includes(type) ? (type as ContextInput["nav"]) : undefined;
 }
 
+export type PageUrl = Pick<Location, "pathname" | "search">;
+
 /** Hash ve query atılır; sadece `keepQuery` listesindeki parametreler (temizlenmiş değerleriyle) kalır. */
-export function getPath(keepQuery: readonly string[]): string {
-  const params = new URLSearchParams(location.search);
+export function getPath(keepQuery: readonly string[], url: PageUrl = location): string {
+  const params = new URLSearchParams(url.search);
   const kept = new URLSearchParams();
   for (const name of keepQuery) {
     const value = params.get(name);
     if (value !== null) kept.set(name, scrubText(value));
   }
   const query = kept.toString();
-  return (scrubPath(location.pathname) + (query ? `?${query}` : "")).slice(0, LIMITS.maxPathLength);
+  return (scrubPath(url.pathname) + (query ? `?${query}` : "")).slice(0, LIMITS.maxPathLength);
 }
 
 /** `path` ve `route` olayların ait olduğu sayfanındır; gönderim anındaki URL'den okunmaz. */

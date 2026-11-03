@@ -49,6 +49,9 @@ jobs:
       - run: pnpm exec turbo run build --filter=@vitalscope/playground
       - run: pnpm --filter @vitalscope/playground exec playwright install --with-deps chromium firefox webkit
       - run: pnpm --filter @vitalscope/playground test:e2e
+      # Performans bütçeleri diğer testler bittikten sonra tek başına ölçülür; e2e kırılsa da sonuç görülür.
+      - if: ${{ !cancelled() }}
+        run: pnpm --filter @vitalscope/playground test:perf
 
   gitleaks:
     runs-on: ubuntu-latest
