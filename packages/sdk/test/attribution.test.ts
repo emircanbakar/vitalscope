@@ -152,6 +152,24 @@ describe("attribution", () => {
     expect(attrOf("INP")).toEqual({ target: "button#buy", type: "pointer", inputDelay: 10, processing: 162, presentation: 28 });
   });
 
+  it("leaves out events that ended in an earlier frame", async () => {
+    document.body.innerHTML = '<button id="buy"></button>';
+    installFakePerformance({ supported: SUPPORTED });
+    await start();
+    const target = document.getElementById("buy");
+    // pointerdown kendi karesinde biter (1016); click sonraki karede başlayıp 1176'da biter.
+    emit("event", [
+      { name: "pointerdown", interactionId: 4, startTime: 1000, processingStart: 1002, processingEnd: 1003, duration: 16, target },
+      { name: "click", interactionId: 4, startTime: 1016, processingStart: 1018, processingEnd: 1168, duration: 160, target },
+    ]);
+    setVisibility("hidden");
+
+    const inp = vitals().find((v) => v.name === "INP");
+    expect(inp?.attr).toMatchObject({ inputDelay: 2, processing: 150, presentation: 8 });
+    const { inputDelay = 0, processing = 0, presentation = 0 } = inp?.attr ?? {};
+    expect(inputDelay + processing + presentation).toBe(inp?.value);
+  });
+
   it("still sends the metric when attribution fails", async () => {
     installFakePerformance({ supported: SUPPORTED });
     await start();

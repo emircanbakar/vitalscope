@@ -110,9 +110,14 @@ const attributor: Attributor = {
     return defined({ target: getSelector(source?.node), time: Math.max(shift.startTime - getActivationStart(), 0) });
   }),
 
-  // Bir etkileşim birden çok olaydan oluşur (pointerdown, pointerup, click); fazlar hepsinin birleşimidir:
-  // girdi gecikmesi ilk olaya, işleme ilk işleme başlangıcından son işleme bitişine, sunum o andan sonraki kareye.
-  inp: guard((entries: PerformanceEventTiming[]) => {
+  // Bir etkileşim birden çok olaydan oluşur (pointerdown, pointerup, click). Fazlar, en uzun olayla aynı karede
+  // biten olayların birleşimidir (süreler 8 ms'ye yuvarlanır): girdi gecikmesi ilk olaya, işleme ilk işleme
+  // başlangıcından son işleme bitişine, sunum o andan sonraki kareye. Önceki karede bitmiş olay (ör. ayrı
+  // işlenen pointerdown) INP'nin parçası değildir.
+  inp: guard((all: PerformanceEventTiming[]) => {
+    const longest = all.reduce((a, b) => (b.duration > a.duration ? b : a));
+    const frameEnd = longest.startTime + longest.duration;
+    const entries = all.filter((e) => Math.abs(e.startTime + e.duration - frameEnd) <= 8);
     const first = entries.reduce((a, b) => (b.startTime < a.startTime ? b : a));
     const processingStart = Math.min(...entries.map((e) => e.processingStart));
     const processingEnd = Math.max(...entries.map((e) => e.processingEnd));
