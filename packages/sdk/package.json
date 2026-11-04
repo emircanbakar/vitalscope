@@ -32,7 +32,8 @@
     "./vitalscope.iife.js": "./dist/vitalscope.iife.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsdown",
