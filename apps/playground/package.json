@@ -13,10 +13,10 @@
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
-    "@types/node": "24.19.2",
+    "@types/node": "26.6.6",
     "@vitalscope/protocol": "workspace:*",
     "@vitalscope/sdk": "workspace:*",
-    "typescript": "6.0.3",
+    "typescript": "7.0.2",
     "vite": "8.3.5",
     "web-vitals": "6.2.3"
   }
