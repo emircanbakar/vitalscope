@@ -26,6 +26,8 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Yayınlanan paketlerin çalışma zamanı bağımlılıklarında bilinen açık olmamalı.
+      - run: pnpm audit --prod
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test

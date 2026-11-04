@@ -60,7 +60,7 @@ describe("npm pack", () => {
     const entries = ["attribution", "index", "next", "react"].flatMap((e) => [`dist/${e}.d.mts`, `dist/${e}.mjs`]);
     const changelog = existsSync(new URL("CHANGELOG.md", root)) ? ["CHANGELOG.md"] : [];
     expect(files).toEqual(
-      [...changelog, "LICENSE", "README.md", ...entries, "dist/index-[hash].d.mts", "dist/src-[hash].mjs", "dist/vitalscope.iife.js", "package.json"].sort(),
+      [...changelog, "LICENSE", "README.md", "SECURITY.md", ...entries, "dist/index-[hash].d.mts", "dist/src-[hash].mjs", "dist/vitalscope.iife.js", "package.json"].sort(),
     );
   });
 });

@@ -1,6 +1,6 @@
 # Yol haritası ve durum
 
-Son güncelleme: 4 Kasım 2026 (main: `7f85a86`)
+Son güncelleme: 4 Kasım 2026 (main: `e38c930`)
 
 Vitalscope, sitelerin gerçek kullanıcı performansını (Core Web Vitals) ve JavaScript hatalarını izleyen, açık kaynak ve self-host edilebilir bir platformdur. Üç parçadan oluşur:
 
@@ -84,11 +84,12 @@ PR #11'deki e2e senaryolarından çıkanlar ve PR #13'teki çözümleri. Hedef: 
 
 ## Güvenlik ve kalite eksikleri
 
-- [ ] ESLint ile tehlikeli API yasağı (`eval`, `new Function`, `innerHTML`, `document.write` vb.)
-- [ ] CodeQL, Dependabot (haftalık, gruplu), OpenSSF Scorecard
-- [ ] `SECURITY.md`
-- [ ] CI'da `pnpm audit --prod` (boş `dependencies` ve `npm pack` dosya listesi testlerde, #17)
-- [ ] Kapsam eşikleri: SDK ≥ %95, temizleme ve taşıma %100
+- [x] ESLint ile tehlikeli API yasağı: `eval`, `new Function`, dizgi ile `setTimeout` / `setInterval`, `innerHTML`, `outerHTML`, `srcdoc`, `insertAdjacentHTML`, `createContextualFragment`, `parseFromString`, `document.write`
+- [x] Dependabot: haftalık, gruplu, 3 gün bekleme, otomatik merge yok
+- [ ] CodeQL ve OpenSSF Scorecard: repo public olunca (private repoda code scanning kapalı, Scorecard public repolar için)
+- [x] `SECURITY.md`: bildirim adresi ecbakar.dev@gmail.com, ilk yanıt 72 saat; npm paketlerinde de var. Repo public olunca GitHub private vulnerability reporting eklenebilir
+- [x] CI'da `pnpm audit --prod` (boş `dependencies` ve `npm pack` dosya listesi testlerde)
+- [x] Kapsam eşikleri (satır): SDK ≥ %95 (şu an %99,55), `transport.ts` ve `privacy.ts` %100. `iife.ts` build çıktısı üzerinden test edilir, ölçüme girmez
 - [ ] Kök README ve tam dokümantasyon (paket README'leri #17'de kısa haliyle var; self-host adımları, referans kütüphaneyle uyum tablosu, tarayıcı desteği)
 
 ## Elle yapılacaklar
@@ -96,7 +97,7 @@ PR #11'deki e2e senaryolarından çıkanlar ve PR #13'teki çözümleri. Hedef: 
 - [ ] GitHub güvenlik ayarları: secret scanning, push protection, branch protection
 - [x] npm: `@vitalscope` organizasyonu ve iki paket için `0.0.0` yer tutucu (3 Kasım, Mac'ten; iş ağında proxy TLS incelemesi ve passkey'in telefonla onayı engelliyor)
 - [x] npm: her pakete trusted publisher (`emircanbakar` / `vitalscope` / `release.yml` / ortam `npm`, Allowed actions: `npm publish`)
-- [ ] npm: iki pakette de "Require two-factor authentication and disallow tokens"
+- [x] npm: iki pakette de "Require two-factor authentication and disallow tokens" (senin onayınla; dışarıdan okunamadığı için doğrulanmadı)
 - [x] GitHub: "Allow GitHub Actions to create and approve pull requests" (3 Kasım)
 - [x] GitHub: `npm` ortamında dağıtım dalı sadece `main`. Repo private olduğu için ortam onaylayıcısı kurulamıyor ve npm provenance üretmiyor; yayının kontrol noktası sürüm PR'ının merge'ü
 - [ ] İki GitHub OAuth uygulaması (geliştirme ve canlı)

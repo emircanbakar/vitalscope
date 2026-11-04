@@ -11,6 +11,6 @@ describe("npm pack", () => {
     const files = (pack.files as { path: string }[]).map((f) => f.path).sort();
     const modules = ["constants", "index", "privacy", "schema"].flatMap((m) => [`dist/${m}.d.ts`, `dist/${m}.js`, `dist/${m}.js.map`]);
     const changelog = existsSync(new URL("CHANGELOG.md", root)) ? ["CHANGELOG.md"] : [];
-    expect(files).toEqual([...changelog, "LICENSE", "README.md", ...modules, "package.json"].sort());
+    expect(files).toEqual([...changelog, "LICENSE", "README.md", "SECURITY.md", ...modules, "package.json"].sort());
   });
 });
