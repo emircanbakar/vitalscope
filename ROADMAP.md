@@ -1,6 +1,6 @@
 # Yol haritası ve durum
 
-Son güncelleme: 4 Kasım 2026 (main: `e38c930`)
+Son güncelleme: 4 Kasım 2026 (main: `0518750`)
 
 Vitalscope, sitelerin gerçek kullanıcı performansını (Core Web Vitals) ve JavaScript hatalarını izleyen, açık kaynak ve self-host edilebilir bir platformdur. Üç parçadan oluşur:
 
@@ -29,8 +29,9 @@ Kurallar: her adım ayrı branch ve PR, CI yeşil olmadan merge yok, PR'lar squa
 | #16 | Attribution build'i ve boyut bütçeleri | `@vitalscope/sdk/attribution`: çekirdekle aynı API, metrik olaylarına `attr` eklenir. LCP: eleman seçicisi, görsel adresi (sadece http(s), query/hash atılır, path temizlenir), TTFB / yükleme gecikmesi / yükleme süresi / render gecikmesi. INP: hedef seçici, `pointer` / `keyboard`, etkileşimin en uzun olayıyla aynı karede biten olaylarından girdi gecikmesi / işleme / sunum, destekleyen tarayıcıda en uzun betik (long animation frame). CLS: en büyük penceredeki en büyük kaymanın elemanı ve zamanı. Seçiciler sadece etiket, id, sınıf; en fazla 100 karakter. Attribution hatası metriği düşürmez. `size-limit` CI'da (gzip, bağımlılıklar dahil) |
 | #17 | Yayın hazırlığı | `dist/vitalscope.iife.js`: tek global, dondurulmuş `window.vitalscope`; etiketin `data-key` / `data-endpoint` / `data-release` / `data-environment` özellikleriyle kendiliğinden başlar. Playground'da SRI ile yüklenir, değiştirilmiş dosyayı tarayıcı engeller (3 tarayıcı). `release.yml`: Changesets sürüm PR'ı; yayınlanmamış sürüm varsa `npm` ortamında (sadece main) trusted publishing (OIDC, token yok; repo private olduğu için provenance kapalı) ve GitHub release'i (dist SHA-384 özetleri + script etiketi SRI'ı). Paketler yayınlanabilir: `private` kalktı, README, LICENSE, `repository`; `npm pack` dosya listesi testte. İlk changeset: iki paket `0.1.0` |
 | #18–#20 | İlk yayın: `0.1.0` | `@vitalscope/sdk` ve `@vitalscope/protocol` 4 Kasım'da GitHub Actions'tan trusted publishing ile npm'e çıktı. jsDelivr'daki IIFE dosyasının SRI değeri release notuyla aynı. Repo private olduğu için provenance yok (#19). Trusted publisher tanımında **Allowed actions → `npm publish`** işaretli olmalı; yoksa npm `OIDC permission denied` döner. CHANGELOG artık pakette (#20) |
+| #26 | Ingest çekirdeği | `apps/ingest` (Hono), Docker gerektirmeyen kısım: `POST /v1/e` (64 KB sınırı, şema, protokol sürümü, anahtar, Origin, CORS, boş gövdeli yanıtlar), `/healthz`, `/readyz`, 60 sn'lik anahtar önbelleği ("yok" sonucu dahil), toplu yazma tamponu (1 sn / 5.000 olay, 50.000 sınır, üstel geri çekilme), kapanışta tamponu boşaltma. Depo ve anahtar kaynağı arabirim arkasında; henüz çalıştırılabilir süreç yok |
 
-Durum: 202 birim testi (protokol 53, SDK 149) + 42 e2e testi (14 senaryo × 3 tarayıcı; 38 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut (`size-limit`, minify + gzip, bağımlılıklar dahil) ve bütçe: çekirdek 4,76 / 5 kB, attribution 5,6 / 5,8 kB, `/react` 4,66 / 4,9 kB, `/next` 4,9 / 5,15 kB, IIFE 4,83 / 5,1 kB.
+Durum: 280 birim testi (protokol 53, SDK 149, ingest 78) + 42 e2e testi (14 senaryo × 3 tarayıcı; 38 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut (`size-limit`, minify + gzip, bağımlılıklar dahil) ve bütçe: çekirdek 4,76 / 5 kB, attribution 5,6 / 5,8 kB, `/react` 4,66 / 4,9 kB, `/next` 4,9 / 5,15 kB, IIFE 4,83 / 5,1 kB.
 
 **Boyut bütçesi kararı (#16):** dokümandaki çekirdek < 3 KB ve attribution < 5 KB tutmuyor. Çekirdeği 3 KB'a indirmek için yaklaşık üçte birini (hata yakalama, SPA takibi gibi) ayrı giriş noktalarına taşımak gerekirdi. Bunun yerine bütçeler ölçülen boyutun ≈ %5 üstüne kondu; CI büyümeyi engeller. Not: playground'da attribution sayfası ayrı build edilir; aynı build'de SDK ortak bir parçaya taşınıyor ve `init` sıcak açılışta ≈ 0,2 ms (4× yavaşlatmada) yavaşlıyordu. SDK'yı ayrı bir chunk'a koyan sitelerde de benzer bir fark beklenebilir.
 
@@ -43,7 +44,7 @@ Durum: 202 birim testi (protokol 53, SDK 149) + 42 e2e testi (14 senaryo × 3 ta
 ### Platform
 
 - [ ] **Altyapı:** `infra/docker-compose.dev.yml`, ClickHouse tabloları ve kullanıcıları, Postgres + Drizzle şeması, migration akışı (Docker gerekli)
-- [ ] **Ingest MVP:** doğrulama, anahtar çözümleme, Origin kontrolü, tampon + toplu yazma, graceful shutdown, entegrasyon testleri
+- [ ] **Ingest MVP, kalan (Docker gerekli):** ClickHouse `EventSink`, Postgres anahtar çözümleme, `env.ts` ve `main.ts` (`SIGTERM` bağlantısı), gerçek veritabanlarıyla entegrasyon testleri
 - [ ] **Ingest sertleştirme:** rate limit, geo (DB-IP Lite) ve UA zenginleştirme, hata fingerprint'i, backpressure, `/metrics`; protokoldeki temizleme kuralları sunucuda ikinci kez
 - [ ] **Dashboard iskeleti:** Better Auth + GitHub, proje CRUD, anahtar yönetimi, `scoped-query` + kiracı izolasyonu testleri
 - [ ] **Grafik paketi:** `packages/charts`, SVG + yoğun serilerde Canvas
