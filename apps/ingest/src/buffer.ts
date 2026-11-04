@@ -34,17 +34,21 @@ export interface EventBuffer {
 /**
  * Olayları bellekte biriktirip toplu yazar: ClickHouse çok sayıda küçük insert'i sevmez.
  * Süreç çökerse tampondaki en fazla ≈ 1 saniyelik veri kaybolur; izleme verisi için kabul edilen risk.
- * Yazma hata verirse olaylar tampona döner ve üstel geri çekilmeyle yeniden denenir.
+ * Yazma hata verirse parti üstel geri çekilmeyle aynen yeniden denenir: yeni olaylarla birleşmez,
+ * çünkü sonucu belirsiz bir yazmanın tekrarını ClickHouse ancak blok aynı kalırsa tekilleştirir.
  */
 export function createEventBuffer(sink: EventSink, options: BufferOptions = {}): EventBuffer {
   const { flushIntervalMs, flushAt, maxSize, maxBackoffMs } = { ...DEFAULTS, ...options };
   let queue: StoredEvent[] = [];
+  let failed: StoredEvent[] = [];
   let dropped = 0;
   let failures = 0;
   let inFlight: Promise<void> | undefined;
   let writing = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let draining = false;
+
+  const size = () => queue.length + failed.length;
 
   function schedule(delay: number) {
     if (draining || timer) return;
@@ -60,10 +64,11 @@ export function createEventBuffer(sink: EventSink, options: BufferOptions = {}):
     if (inFlight) return inFlight;
     clearTimeout(timer);
     timer = undefined;
-    if (queue.length === 0) return Promise.resolve();
+    if (size() === 0) return Promise.resolve();
 
-    const batch = queue;
-    queue = [];
+    const batch = failed.length > 0 ? failed : queue;
+    if (batch === queue) queue = [];
+    else failed = [];
     writing = batch.length;
     inFlight = Promise.resolve()
       .then(() => sink.write(batch))
@@ -73,10 +78,11 @@ export function createEventBuffer(sink: EventSink, options: BufferOptions = {}):
         },
         () => {
           failures++;
-          // Önce yazılamayanlar gelir; arada gelenlerle sınır aşılırsa fazlası düşürülür.
-          const merged = [...batch, ...queue];
-          dropped += Math.max(merged.length - maxSize, 0);
-          queue = merged.slice(0, maxSize);
+          failed = batch;
+          // Arada gelenlerle sınır aşılırsa fazlası en yenilerden düşürülür.
+          const excess = Math.max(size() - maxSize, 0);
+          dropped += excess;
+          queue.length -= excess;
         },
       )
       .finally(() => {
@@ -85,14 +91,14 @@ export function createEventBuffer(sink: EventSink, options: BufferOptions = {}):
         // Yazma sürerken eklenen olayın zamanlayıcısı geri çekilme süresini kısaltmasın.
         clearTimeout(timer);
         timer = undefined;
-        if (queue.length > 0) schedule(failures ? Math.min(flushIntervalMs * 2 ** failures, maxBackoffMs) : flushIntervalMs);
+        if (size() > 0) schedule(failures ? Math.min(flushIntervalMs * 2 ** failures, maxBackoffMs) : flushIntervalMs);
       });
     return inFlight;
   }
 
   return {
     add(events) {
-      const accepted = events.slice(0, Math.max(maxSize - queue.length, 0));
+      const accepted = events.slice(0, Math.max(maxSize - size(), 0));
       dropped += events.length - accepted.length;
       queue.push(...accepted);
       // Geri çekilme sırasında sınıra ulaşmak yeni deneme başlatmaz; bekleme süresi korunur.
@@ -106,19 +112,20 @@ export function createEventBuffer(sink: EventSink, options: BufferOptions = {}):
       clearTimeout(timer);
       timer = undefined;
       const deadline = Date.now() + timeoutMs;
-      for (let remaining = timeoutMs; remaining > 0 && (inFlight || queue.length > 0); remaining = deadline - Date.now()) {
+      for (let remaining = timeoutMs; remaining > 0 && (inFlight || size() > 0); remaining = deadline - Date.now()) {
         const expired = sleep(remaining);
         await Promise.race([flush(), expired.done]);
         expired.cancel();
         remaining = deadline - Date.now();
-        if (failures > 0 && queue.length > 0 && remaining > 0) await sleep(Math.min(DRAIN_RETRY_MS * 2 ** failures, remaining)).done;
+        if (failures > 0 && size() > 0 && remaining > 0) await sleep(Math.min(DRAIN_RETRY_MS * 2 ** failures, remaining)).done;
       }
       // Süre dolarken yazılmakta olanların sonucu bilinmez; onlar da kayıp sayılır.
-      const lost = queue.length + writing;
+      const lost = size() + writing;
       dropped += lost;
       queue = [];
+      failed = [];
       return lost;
     },
-    stats: () => ({ size: queue.length, dropped }),
+    stats: () => ({ size: size(), dropped }),
   };
 }

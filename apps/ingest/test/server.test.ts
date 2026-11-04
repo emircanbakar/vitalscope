@@ -1,3 +1,5 @@
+import { once } from "node:events";
+import net from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { createEventBuffer } from "../src/buffer.js";
@@ -64,6 +66,20 @@ describe("server", () => {
     await post();
     fake.fail(true);
     await expect(server.shutdown()).resolves.toBe(1);
+  });
+
+  it("does not let an unfinished request block shutdown", async () => {
+    const { fake, post, server } = await start();
+    await post();
+    const socket = net.connect(server.port, "127.0.0.1");
+    socket.on("error", () => {});
+    await once(socket, "connect");
+    socket.write(`POST /v1/e HTTP/1.1\r\nHost: x\r\nContent-Type: text/plain\r\nContent-Length: 1000\r\n\r\n{`);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    await expect(server.shutdown()).resolves.toBe(0);
+    expect(fake.written()).toHaveLength(1);
+    socket.destroy();
   });
 
   it("can be asked to shut down twice", async () => {
