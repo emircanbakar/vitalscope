@@ -5,6 +5,8 @@ import type { EventBuffer } from "./buffer.js";
 
 /** Kapanışta tamponu yazmak için tanınan süre; orkestratörün `SIGKILL` süresinden kısa olmalı. */
 const DEFAULT_DRAIN_TIMEOUT_MS = 10_000;
+/** Bitmeyen bir istek (yavaş gönderen istemci) tamponun yazılmasını engellemesin. */
+const CLOSE_GRACE_MS = 2_000;
 
 export interface RunningServer {
   port: number;
@@ -25,7 +27,13 @@ export function startServer(
         port: info.port,
         shutdown: () =>
           (closing ??= new Promise<void>((closed) => {
-            server.close(() => closed());
+            const force = setTimeout(() => {
+              if ("closeAllConnections" in server) server.closeAllConnections();
+            }, CLOSE_GRACE_MS);
+            server.close(() => {
+              clearTimeout(force);
+              closed();
+            });
             // Boştaki keep-alive bağlantıları kapanışı bekletmesin.
             if ("closeIdleConnections" in server) server.closeIdleConnections();
           }).then(() => buffer.drain(drainTimeoutMs))),

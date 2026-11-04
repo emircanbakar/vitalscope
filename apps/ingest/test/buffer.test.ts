@@ -62,6 +62,32 @@ describe("event buffer", () => {
     expect(buffer.stats()).toEqual({ size: 0, dropped: 0 });
   });
 
+  it("retries a failed batch unchanged and writes newer events separately", async () => {
+    const fake = fakeSink();
+    const write = vi.spyOn(fake.sink, "write");
+    fake.fail(true);
+    const buffer = createEventBuffer(fake.sink, { flushIntervalMs: 1000 });
+    buffer.add(storedEvents(2));
+    await vi.advanceTimersByTimeAsync(1000);
+    buffer.add(storedEvents(1));
+    fake.fail(false);
+    await vi.advanceTimersByTimeAsync(2000);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(write.mock.calls.map(([events]) => events.length)).toEqual([2, 2, 1]);
+    expect(write.mock.calls[1]?.[0]).toBe(write.mock.calls[0]?.[0]);
+    expect(buffer.stats()).toEqual({ size: 0, dropped: 0 });
+  });
+
+  it("counts a failed batch against the limit", async () => {
+    const fake = fakeSink();
+    fake.fail(true);
+    const buffer = createEventBuffer(fake.sink, { maxSize: 3, flushAt: 100 });
+    buffer.add(storedEvents(2));
+    await buffer.flush();
+    expect(buffer.add(storedEvents(2))).toBe(1);
+    expect(buffer.stats()).toEqual({ size: 3, dropped: 1 });
+  });
+
   it("does not shorten the backoff when events arrive during a failing write", async () => {
     const fake = fakeSink();
     const write = vi.spyOn(fake.sink, "write");
