@@ -13,3 +13,4 @@ trustPolicy: no-downgrade
 # Bağımlılıkların install script'leri çalışmaz; git hook'ları `prepare` script'i kurar.
 allowBuilds:
   lefthook: false
+  esbuild: false
