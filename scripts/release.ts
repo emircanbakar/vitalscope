@@ -48,19 +48,24 @@ function releaseNotes(pkg: Pkg): string {
     const url = `https://cdn.jsdelivr.net/npm/${pkg.name}@${pkg.version}/dist/vitalscope.iife.js`;
     notes.push(
       "### Script etiketi",
-      "```html",
-      `<script async src="${url}"`,
-      `  integrity="${sri(join(dist, "vitalscope.iife.js"))}"`,
-      '  crossorigin="anonymous"',
-      '  data-key="pk_…" data-endpoint="https://…/v1/e"></script>',
-      "```",
+      [
+        "```html",
+        `<script async src="${url}"`,
+        `  integrity="${sri(join(dist, "vitalscope.iife.js"))}"`,
+        '  crossorigin="anonymous"',
+        '  data-key="pk_…" data-endpoint="https://…/v1/e"></script>',
+        "```",
+      ].join("\n"),
     );
   }
   const files = readdirSync(dist, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile())
     .map((entry) => join(entry.parentPath, entry.name))
     .sort();
-  notes.push("### dist SHA-384", "```", ...files.map((file) => `${sha384(file)}  ${file.slice(pkg.dir.length + 1)}`), "```");
+  notes.push(
+    "### dist SHA-384",
+    ["```", ...files.map((file) => `${sha384(file)}  ${file.slice(pkg.dir.length + 1)}`), "```"].join("\n"),
+  );
   return notes.join("\n\n");
 }
 
