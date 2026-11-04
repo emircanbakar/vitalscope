@@ -1,6 +1,6 @@
 # Yol haritası ve durum
 
-Son güncelleme: 3 Kasım 2026 (main: `44aee6d`)
+Son güncelleme: 4 Kasım 2026 (main: `7f85a86`)
 
 Vitalscope, sitelerin gerçek kullanıcı performansını (Core Web Vitals) ve JavaScript hatalarını izleyen, açık kaynak ve self-host edilebilir bir platformdur. Üç parçadan oluşur:
 
@@ -28,6 +28,7 @@ Kurallar: her adım ayrı branch ve PR, CI yeşil olmadan merge yok, PR'lar squa
 | #15 | Performans bütçeleri | Sadece Chromium'da, diğer testlerden sonra tek başına (`test:perf`): orta seviye mobil CPU'da `init` < 1 ms (sıcak açılışların medyanı ≈ 0,6–0,8 ms; yavaşlatma oranı Lighthouse gibi makinenin hızına göre kalibre edilir, referans makinede ≈ 4×), SDK betiklerinin hiçbiri 50 ms sürmez (long animation frame betik atfı), SDK'lı / SDK'sız 20'şer ölçümde LCP ve INP medyan farkı bir kareden az. Bütçe için `init` hafifletildi: metrik gözlemcileri ayrı bir task'te kurulur (`buffered`), ilk path temizliği ilk gönderime ertelenir. web-vitals 6.2.3 ile karşılaştırma (3 tarayıcı): TTFB, FCP, LCP birebir, CLS ±0,001, INP ±8 ms |
 | #16 | Attribution build'i ve boyut bütçeleri | `@vitalscope/sdk/attribution`: çekirdekle aynı API, metrik olaylarına `attr` eklenir. LCP: eleman seçicisi, görsel adresi (sadece http(s), query/hash atılır, path temizlenir), TTFB / yükleme gecikmesi / yükleme süresi / render gecikmesi. INP: hedef seçici, `pointer` / `keyboard`, etkileşimin en uzun olayıyla aynı karede biten olaylarından girdi gecikmesi / işleme / sunum, destekleyen tarayıcıda en uzun betik (long animation frame). CLS: en büyük penceredeki en büyük kaymanın elemanı ve zamanı. Seçiciler sadece etiket, id, sınıf; en fazla 100 karakter. Attribution hatası metriği düşürmez. `size-limit` CI'da (gzip, bağımlılıklar dahil) |
 | #17 | Yayın hazırlığı | `dist/vitalscope.iife.js`: tek global, dondurulmuş `window.vitalscope`; etiketin `data-key` / `data-endpoint` / `data-release` / `data-environment` özellikleriyle kendiliğinden başlar. Playground'da SRI ile yüklenir, değiştirilmiş dosyayı tarayıcı engeller (3 tarayıcı). `release.yml`: Changesets sürüm PR'ı; yayınlanmamış sürüm varsa `npm` ortamında (sadece main) trusted publishing (OIDC, token yok; repo private olduğu için provenance kapalı) ve GitHub release'i (dist SHA-384 özetleri + script etiketi SRI'ı). Paketler yayınlanabilir: `private` kalktı, README, LICENSE, `repository`; `npm pack` dosya listesi testte. İlk changeset: iki paket `0.1.0` |
+| #18–#20 | İlk yayın: `0.1.0` | `@vitalscope/sdk` ve `@vitalscope/protocol` 4 Kasım'da GitHub Actions'tan trusted publishing ile npm'e çıktı. jsDelivr'daki IIFE dosyasının SRI değeri release notuyla aynı. Repo private olduğu için provenance yok (#19). Trusted publisher tanımında **Allowed actions → `npm publish`** işaretli olmalı; yoksa npm `OIDC permission denied` döner. CHANGELOG artık pakette (#20) |
 
 Durum: 202 birim testi (protokol 53, SDK 149) + 42 e2e testi (14 senaryo × 3 tarayıcı; 38 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut (`size-limit`, minify + gzip, bağımlılıklar dahil) ve bütçe: çekirdek 4,76 / 5 kB, attribution 5,6 / 5,8 kB, `/react` 4,66 / 4,9 kB, `/next` 4,9 / 5,15 kB, IIFE 4,83 / 5,1 kB.
 
@@ -37,7 +38,6 @@ Durum: 202 birim testi (protokol 53, SDK 149) + 42 e2e testi (14 senaryo × 3 ta
 
 ### SDK
 
-- [ ] **İlk yayın (`0.1.0`):** kod #17 ile hazır; "Elle yapılacaklar"daki npm ve GitHub adımlarından sonra sürüm PR'ı merge edilir ve yayın onaylanır
 - [ ] **Dogfooding:** enflasyon uygulaması ve ecbakar.com'a kurulum
 
 ### Platform
@@ -95,9 +95,10 @@ PR #11'deki e2e senaryolarından çıkanlar ve PR #13'teki çözümleri. Hedef: 
 
 - [ ] GitHub güvenlik ayarları: secret scanning, push protection, branch protection
 - [x] npm: `@vitalscope` organizasyonu ve iki paket için `0.0.0` yer tutucu (3 Kasım, Mac'ten; iş ağında proxy TLS incelemesi ve passkey'in telefonla onayı engelliyor)
-- [ ] npm: her pakete trusted publisher (`emircanbakar` / `vitalscope` / `release.yml` / ortam `npm`); ilk OIDC yayınından sonra "Require two-factor authentication and disallow tokens"
+- [x] npm: her pakete trusted publisher (`emircanbakar` / `vitalscope` / `release.yml` / ortam `npm`, Allowed actions: `npm publish`)
+- [ ] npm: iki pakette de "Require two-factor authentication and disallow tokens"
 - [x] GitHub: "Allow GitHub Actions to create and approve pull requests" (3 Kasım)
-- [ ] GitHub: `npm` ortamında dağıtım dalı sadece `main`. Repo private olduğu için ortam onaylayıcısı kurulamıyor ve npm provenance üretmiyor; yayının kontrol noktası sürüm PR'ının merge'ü
+- [x] GitHub: `npm` ortamında dağıtım dalı sadece `main`. Repo private olduğu için ortam onaylayıcısı kurulamıyor ve npm provenance üretmiyor; yayının kontrol noktası sürüm PR'ının merge'ü
 - [ ] İki GitHub OAuth uygulaması (geliştirme ve canlı)
 - [ ] Alan adı ve VPS (ClickHouse için en az 8 GB RAM)
 - [ ] Docker kurulumu (altyapı adımı için)
