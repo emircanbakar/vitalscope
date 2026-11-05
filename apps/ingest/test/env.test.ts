@@ -1,26 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { parseEnv } from "../src/env.js";
 
-const valid = {
-  PORT: "8787",
-  DATABASE_URL: "postgres://u:p@localhost:5432/db",
-  CLICKHOUSE_URL: "http://localhost:8123",
-  CLICKHOUSE_WRITE_USER: "ingest",
-  CLICKHOUSE_WRITE_PASSWORD: "gizli-deger",
-};
-
 describe("parseEnv", () => {
   it("accepts valid values", () => {
-    expect(parseEnv(valid)).toMatchObject({ PORT: 8787, CLICKHOUSE_WRITE_USER: "ingest" });
+    expect(parseEnv({ PORT: "9000", VITALSCOPE_DIR: "olcumler" })).toEqual({ PORT: 9000, VITALSCOPE_DIR: "olcumler" });
   });
 
-  it("does not fall back to a default port", () => {
-    expect(() => parseEnv({ ...valid, PORT: undefined })).toThrow("PORT");
+  it("needs no configuration", () => {
+    expect(parseEnv({})).toEqual({ PORT: 8787, VITALSCOPE_DIR: ".vitalscope" });
   });
 
   it("names every bad variable but never its value", () => {
-    const parse = () => parseEnv({ ...valid, DATABASE_URL: "gizli-deger", CLICKHOUSE_WRITE_PASSWORD: "" });
-    expect(parse).toThrow("DATABASE_URL, CLICKHOUSE_WRITE_PASSWORD");
+    const parse = () => parseEnv({ PORT: "gizli-deger", VITALSCOPE_DIR: "" });
+    expect(parse).toThrow("PORT, VITALSCOPE_DIR");
     expect(parse).not.toThrow("gizli-deger");
   });
 });

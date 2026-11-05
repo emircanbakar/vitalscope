@@ -32,10 +32,9 @@ export interface EventBuffer {
 }
 
 /**
- * Olayları bellekte biriktirip toplu yazar: ClickHouse çok sayıda küçük insert'i sevmez.
- * Süreç çökerse tampondaki en fazla ≈ 1 saniyelik veri kaybolur; izleme verisi için kabul edilen risk.
- * Yazma hata verirse parti üstel geri çekilmeyle aynen yeniden denenir: yeni olaylarla birleşmez,
- * çünkü sonucu belirsiz bir yazmanın tekrarını ClickHouse ancak blok aynı kalırsa tekilleştirir.
+ * Olayları bellekte biriktirip toplu yazar: istek işlerken eşzamanlı disk yazması yapılmaz.
+ * Süreç çökerse tampondaki en fazla ≈ 1 saniyelik veri kaybolur; ölçüm verisi için kabul edilen risk.
+ * Yazma hata verirse (ör. veritabanı kilitli) parti üstel geri çekilmeyle aynen yeniden denenir.
  */
 export function createEventBuffer(sink: EventSink, options: BufferOptions = {}): EventBuffer {
   const { flushIntervalMs, flushAt, maxSize, maxBackoffMs } = { ...DEFAULTS, ...options };

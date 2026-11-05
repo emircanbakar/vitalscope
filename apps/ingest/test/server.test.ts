@@ -6,7 +6,7 @@ import { createEventBuffer } from "../src/buffer.js";
 import { startServer, type RunningServer } from "../src/server.js";
 import { fakeSink } from "./helpers.js";
 
-const ORIGIN = "https://site.test";
+const ORIGIN = "http://localhost:3000";
 const batch = JSON.stringify({
   v: 1,
   k: "pk_3f9a0c1d2e4b5a6978c0d1e2",
@@ -24,7 +24,7 @@ afterEach(async () => {
 async function start(drainTimeoutMs = 2000) {
   const fake = fakeSink();
   const buffer = createEventBuffer(fake.sink, { flushIntervalMs: 60_000 });
-  const app = createApp({ resolveKey: async () => ({ id: "p1", allowedOrigins: ["site.test"] }), buffer });
+  const app = createApp({ buffer });
   running = await startServer(app, buffer, { port: 0, hostname: "127.0.0.1", drainTimeoutMs });
   const url = `http://127.0.0.1:${running.port}`;
   const post = () => fetch(`${url}/v1/e`, { method: "POST", body: batch, headers: { "Content-Type": "text/plain", Origin: ORIGIN } });
@@ -74,7 +74,7 @@ describe("server", () => {
     const socket = net.connect(server.port, "127.0.0.1");
     socket.on("error", () => {});
     await once(socket, "connect");
-    socket.write(`POST /v1/e HTTP/1.1\r\nHost: x\r\nContent-Type: text/plain\r\nContent-Length: 1000\r\n\r\n{`);
+    socket.write(`POST /v1/e HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: text/plain\r\nContent-Length: 1000\r\n\r\n{`);
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     await expect(server.shutdown()).resolves.toBe(0);

@@ -10,10 +10,6 @@
     },
     "test": {
       "dependsOn": ["^build", "build"]
-    },
-    "test:integration": {
-      "dependsOn": ["^build", "build", "^test:integration"],
-      "cache": false
     }
   }
 }

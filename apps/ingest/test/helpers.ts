@@ -33,7 +33,6 @@ export function fakeSink() {
 
 export function storedEvents(count: number): StoredEvent[] {
   return Array.from({ length: count }, (_, i) => ({
-    projectId: "p1",
     receivedAt: i + 1,
     sdk: "0.1.1",
     ctx: { sid: "0123456789abcdef", path: "/", env: "production", device: "desktop", sr: 1 },
