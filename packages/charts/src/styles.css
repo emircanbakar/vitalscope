@@ -1,0 +1,310 @@
+.vs-chart {
+  color-scheme: light;
+  --vs-surface: #fcfcfb;
+  --vs-text: #0b0b0b;
+  --vs-text-secondary: #52514e;
+  --vs-muted: #898781;
+  --vs-grid: #e1e0d9;
+  --vs-baseline: #c3c2b7;
+  --vs-border: rgba(11, 11, 11, 0.1);
+  --vs-series-1: #2a78d6;
+  --vs-series-2: #eb6834;
+  --vs-series-3: #1baf7a;
+  --vs-series-4: #eda100;
+  --vs-series-5: #e87ba4;
+  --vs-series-6: #008300;
+  --vs-series-7: #6250d6;
+  --vs-series-8: #e34948;
+  /* Durum renkleri temayla değişmez, seri rengi olarak kullanılmaz. */
+  --vs-good: #0ca30c;
+  --vs-needs: #fab219;
+  --vs-poor: #d03b3b;
+
+  margin: 0;
+  padding: 16px;
+  background: var(--vs-surface);
+  color: var(--vs-text);
+  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) .vs-chart {
+    color-scheme: dark;
+    --vs-surface: #1a1a19;
+    --vs-text: #f0efec;
+    --vs-text-secondary: #c3c2b7;
+    --vs-grid: #2c2c2a;
+    --vs-baseline: #383835;
+    --vs-border: rgba(255, 255, 255, 0.1);
+    --vs-series-1: #3987e5;
+    --vs-series-2: #d95926;
+    --vs-series-3: #199e70;
+    --vs-series-4: #c98500;
+    --vs-series-5: #d55181;
+    --vs-series-7: #9085e9;
+    --vs-series-8: #e66767;
+  }
+}
+
+:root[data-theme="dark"] .vs-chart {
+  color-scheme: dark;
+  --vs-surface: #1a1a19;
+  --vs-text: #f0efec;
+  --vs-text-secondary: #c3c2b7;
+  --vs-grid: #2c2c2a;
+  --vs-baseline: #383835;
+  --vs-border: rgba(255, 255, 255, 0.1);
+  --vs-series-1: #3987e5;
+  --vs-series-2: #d95926;
+  --vs-series-3: #199e70;
+  --vs-series-4: #c98500;
+  --vs-series-5: #d55181;
+  --vs-series-7: #9085e9;
+  --vs-series-8: #e66767;
+}
+
+.vs-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.vs-summary {
+  margin: 2px 0 0;
+  color: var(--vs-text-secondary);
+}
+
+.vs-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--vs-text-secondary);
+  font-size: 12px;
+}
+
+.vs-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vs-key {
+  display: inline-block;
+  flex: none;
+  border-radius: 2px;
+}
+
+.vs-key-line {
+  width: 14px;
+  height: 2px;
+}
+
+.vs-key-block {
+  width: 12px;
+  height: 12px;
+}
+
+.vs-plot {
+  position: relative;
+  margin-top: 12px;
+  touch-action: pan-y;
+}
+
+.vs-plot:focus-visible,
+.vs-rating:focus-visible {
+  outline: 2px solid var(--vs-series-1);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.vs-plot svg,
+.vs-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.vs-axis {
+  fill: var(--vs-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.vs-grid {
+  stroke: var(--vs-grid);
+  stroke-width: 1;
+}
+
+.vs-baseline {
+  stroke: var(--vs-baseline);
+  stroke-width: 1;
+}
+
+.vs-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.vs-dot {
+  stroke: var(--vs-surface);
+  stroke-width: 2;
+}
+
+.vs-end-label {
+  fill: var(--vs-text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.vs-crosshair {
+  stroke: var(--vs-muted);
+  stroke-width: 1;
+}
+
+.vs-hit {
+  fill: transparent;
+}
+
+.vs-bar-active {
+  filter: brightness(1.12);
+}
+
+.vs-marker {
+  stroke-width: 1;
+}
+
+.vs-marker-threshold {
+  stroke: var(--vs-muted);
+}
+
+.vs-marker-percentile {
+  stroke: var(--vs-text);
+}
+
+.vs-marker-label {
+  fill: var(--vs-text-secondary);
+  font-size: 11px;
+}
+
+.vs-tooltip {
+  position: absolute;
+  top: 8px;
+  z-index: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--vs-border);
+  border-radius: 6px;
+  background: var(--vs-surface);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.vs-tooltip-title {
+  color: var(--vs-text-secondary);
+}
+
+.vs-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--vs-text-secondary);
+}
+
+.vs-tooltip-row strong {
+  color: var(--vs-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.vs-rating {
+  position: relative;
+  margin-top: 12px;
+}
+
+.vs-rating-bar {
+  display: flex;
+  gap: 2px;
+  height: 28px;
+}
+
+.vs-rating-part {
+  flex: 1 1 0;
+  min-width: 2px;
+  border-radius: 4px;
+  color: #fff;
+}
+
+.vs-on-light {
+  color: #0b0b0b;
+}
+
+.vs-rating-label {
+  display: block;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 28px;
+}
+
+/* Yalnızca 45° ve aynası; yatay ya da dikey desen ızgara gibi okunur. */
+.vs-pattern-rising {
+  background-image: repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.14) 0 2px, transparent 2px 6px);
+}
+
+.vs-pattern-falling {
+  background-image: repeating-linear-gradient(135deg, rgba(0, 0, 0, 0.14) 0 2px, transparent 2px 6px);
+}
+
+.vs-table {
+  margin-top: 12px;
+  color: var(--vs-text-secondary);
+  font-size: 12px;
+}
+
+.vs-table summary {
+  cursor: pointer;
+}
+
+.vs-table table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.vs-table th,
+.vs-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--vs-grid);
+  font-weight: 400;
+  text-align: right;
+}
+
+.vs-table th:first-child {
+  text-align: left;
+}
+
+.vs-table thead th {
+  color: var(--vs-text);
+  font-weight: 600;
+}
+
+/* Yüksek karşıtlık ve baskıda işaretler anlamını kaybetmesin. */
+.vs-plot,
+.vs-rating-bar,
+.vs-key {
+  print-color-adjust: exact;
+}
+
+@media (forced-colors: active) {
+  .vs-plot svg,
+  .vs-canvas,
+  .vs-rating-bar,
+  .vs-key {
+    forced-color-adjust: none;
+  }
+}
