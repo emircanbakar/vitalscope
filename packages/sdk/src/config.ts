@@ -2,10 +2,10 @@ import { LIMITS, PUBLIC_KEY_PATTERN } from "@vitalscope/protocol";
 import type { IgnorePattern } from "./errors.js";
 
 export interface Config {
-  /** `pk_` ile başlayan public proje anahtarı. */
-  key: string;
-  /** Ingest URL'i; `https:` olmalı (localhost hariç). */
-  endpoint: string;
+  /** `pk_` ile başlayan public proje anahtarı. Yerel toplayıcı değerine bakmaz; varsayılanı yeterlidir. */
+  key?: string;
+  /** Toplayıcı URL'i; `https:` olmalı (localhost hariç). Varsayılan `vitalscope dev` adresi. */
+  endpoint?: string;
   release?: string;
   environment?: "production" | "preview" | "development";
   /** 0–1 arası; karar sayfa yüklemesi başına bir kez verilir. Varsayılan 1. */
@@ -40,6 +40,17 @@ export interface ResolvedConfig {
 
 const ENVIRONMENTS = ["production", "preview", "development"] as const;
 const LOCAL_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
+/** Protokol anahtar ister; tek proje olan yerel toplayıcı için sabit bir değer yeterlidir. */
+const LOCAL_KEY = "pk_localvitalscope000000000";
+const LOCAL_ENDPOINT = "http://localhost:8787/v1/e";
+
+/**
+ * Sayfa bu makinede mi açık? `devDependencies` paketi bundler'la canlıya sızabilir;
+ * gerçek bir alan adında SDK hiç başlamaz, canlı kullanıcıdan veri toplanmaz.
+ */
+export function isLocalPage(hostname: string = location.hostname): boolean {
+  return LOCAL_HOSTS.includes(hostname) || hostname.endsWith(".localhost");
+}
 
 function isAllowedEndpoint(value: string): boolean {
   let url: URL;
@@ -62,11 +73,11 @@ const isPattern = (item: unknown): item is IgnorePattern => typeof item === "str
  * Sadece bilinen alanlar tek tek okunur; `__proto__` gibi anahtarlar hiç kopyalanmaz.
  * Geçersiz config'de `null` döner ve SDK başlamaz.
  */
-export function resolveConfig(input: unknown): ResolvedConfig | null {
+export function resolveConfig(input: unknown = {}): ResolvedConfig | null {
   if (typeof input !== "object" || input === null) return null;
   const {
-    key,
-    endpoint,
+    key = LOCAL_KEY,
+    endpoint = LOCAL_ENDPOINT,
     release,
     environment,
     sampleRate,

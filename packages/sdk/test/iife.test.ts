@@ -10,8 +10,8 @@ const KEY = "pk_3f9a0c1d2e4b5a6978c0d1e2";
 const ENDPOINT = "https://ingest.test/v1/e";
 
 /** Sayfaya IIFE'yi verilen data özellikleriyle bir script etiketi olarak ekler. */
-function load(attributes: Record<string, string> = {}, times = 1) {
-  const dom = new JSDOM("<!doctype html><html><body></body></html>", { runScripts: "dangerously", url: "https://site.test/" });
+function load(attributes: Record<string, string> = {}, times = 1, url = "http://localhost:3000/") {
+  const dom = new JSDOM("<!doctype html><html><body></body></html>", { runScripts: "dangerously", url });
   const { window } = dom;
   const beacon = vi.fn(() => true);
   Object.defineProperty(window.navigator, "sendBeacon", { value: beacon });
@@ -46,13 +46,29 @@ describe("vitalscope.iife.js", () => {
     expect(JSON.parse(body)).toMatchObject({ k: KEY, ctx: { release: "9f2c1ab", env: "preview" }, e: [{ t: "pageview" }] });
   });
 
-  it("waits for init() without data-key", () => {
+  it("starts without any attributes and sends to the local collector", () => {
     const { beacon, sdk } = load();
+    sdk.flush?.();
+    expect(beacon.mock.calls[0]).toEqual(["http://localhost:8787/v1/e", expect.stringContaining('"t":"pageview"')]);
+  });
+
+  it("waits for init() with data-manual", () => {
+    const { beacon, sdk } = load({ manual: "" });
     sdk.flush?.();
     expect(beacon).not.toHaveBeenCalled();
     sdk.init?.({ key: KEY, endpoint: ENDPOINT });
     sdk.flush?.();
     expect(beacon).toHaveBeenCalledTimes(1);
+  });
+
+  it("collects nothing on a page that is not local", () => {
+    const { beacon, sdk, errors } = load({ key: KEY, endpoint: ENDPOINT }, 1, "https://ecbakar.com/");
+    sdk.init?.();
+    sdk.track?.("x");
+    sdk.flush?.();
+    expect(beacon).not.toHaveBeenCalled();
+    expect(errors).toEqual([]);
+    expect(Object.isFrozen(sdk)).toBe(true);
   });
 
   it("keeps the first copy when loaded twice", () => {

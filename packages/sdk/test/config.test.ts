@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { resolveConfig } from "../src/config.js";
+import { PUBLIC_KEY_PATTERN } from "@vitalscope/protocol";
+import { isLocalPage, resolveConfig } from "../src/config.js";
 
 const key = "pk_3f9a0c1d2e4b5a6978c0d1e2";
 const endpoint = "https://ingest.vitalscope.dev/v1/e";
@@ -21,8 +22,19 @@ describe("resolveConfig", () => {
     });
   });
 
+  it.each([[undefined], [{}]])("needs no configuration for the local collector (%j)", (input) => {
+    const resolved = resolveConfig(input);
+    expect(resolved?.endpoint).toBe("http://localhost:8787/v1/e");
+    expect(resolved?.key).toMatch(PUBLIC_KEY_PATTERN);
+  });
+
+  it("keeps the local key when only the port changes", () => {
+    expect(resolveConfig({ endpoint: "http://localhost:9000/v1/e" })).toMatchObject({ endpoint: "http://localhost:9000/v1/e", key: expect.stringMatching(PUBLIC_KEY_PATTERN) });
+  });
+
   it.each([
-    ["missing config", undefined],
+    ["null config", null],
+    ["a non-object config", "pk_3f9a0c1d2e4b5a6978c0d1e2"],
     ["malformed key", { key: "pk_ABC", endpoint }],
     ["secret key", { key: "sk_3f9a0c1d2e4b5a6978c0d1e2", endpoint }],
     ["plain http endpoint", { key, endpoint: "http://ingest.vitalscope.dev/v1/e" }],
@@ -53,5 +65,15 @@ describe("resolveConfig", () => {
     expect(resolved?.debug).toBe(false);
     expect(resolved).not.toHaveProperty("extra");
     expect(({} as Record<string, unknown>).debug).toBeUndefined();
+  });
+});
+
+describe("isLocalPage", () => {
+  it.each(["localhost", "127.0.0.1", "[::1]", "app.localhost"])("is true on %s", (hostname) => {
+    expect(isLocalPage(hostname)).toBe(true);
+  });
+
+  it.each(["ecbakar.com", "localhost.evil.io", "evillocalhost", "127.0.0.1.evil.io", "192.168.1.10", "my-app.test", ""])("is false on %j", (hostname) => {
+    expect(isLocalPage(hostname)).toBe(false);
   });
 });

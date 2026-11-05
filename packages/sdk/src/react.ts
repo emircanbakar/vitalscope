@@ -4,7 +4,7 @@ import { useEffect, type ReactNode } from "react";
 import { init, setRoute, type Config } from "./index.js";
 
 export interface VitalscopeProviderProps {
-  config: Config;
+  config?: Config | undefined;
   /** Mevcut sayfanın rota şablonu, örn. `/urun/[id]`; router state'inden hesaplanmalıdır. */
   route?: string | undefined;
   children?: ReactNode;

@@ -134,7 +134,7 @@ const attributor: Attributor = {
 };
 
 /** Çekirdekteki `init` ile aynı; metrik olaylarına attribution eklenir. */
-export const init = (config: Config): void => {
+export const init = (config?: Config): void => {
   setAttributor(attributor);
   baseInit(config);
 };

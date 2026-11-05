@@ -1,6 +1,6 @@
 # Yol haritası ve durum
 
-Son güncelleme: 5 Kasım 2026 (main: `8f07f38`)
+Son güncelleme: 5 Kasım 2026 (main: `14eb5e9`)
 
 Vitalscope, geliştiricinin kendi bilgisayarında çalışan, `devDependencies`'e kurulan açık kaynak bir performans aracıdır. Core Web Vitals ölçümlerini ve JavaScript hatalarını toplar, sonuçları yerel bir panelde ve terminalde gösterir. Sunucu, hesap ve Docker gerektirmez. Üç parçadan oluşur:
 
@@ -37,8 +37,9 @@ Kurallar: her adım ayrı branch ve PR, CI yeşil olmadan merge yok, PR'lar squa
 | #30 | Yön kararı | Yol haritası yerel geliştirici aracına göre yeniden yazıldı |
 | #31 | Yerel toplayıcı | `apps/ingest` Docker'sız çalışır: olaylar `.vitalscope/vitalscope.db` dosyasına (`node:sqlite`, WAL) tek transaction'da yazılır, klasördeki `.gitignore` ölçümleri git dışında tutar. Sadece `127.0.0.1`'e bağlanır; yerel olmayan `Origin` ve `Host` reddedilir (DNS rebinding dahil). Anahtarın sadece biçimi doğrulanır, proje kavramı ve `/readyz` kalktı. ClickHouse, Postgres, `packages/db`, `infra/` ve CI'daki `integration` işi kaldırıldı. Gerçek SDK ile Chromium, Firefox, WebKit'te elle denendi |
 | #32 | CLI | `apps/ingest` → `packages/cli` (`@vitalscope/cli`, henüz yayınlanmıyor). `vitalscope dev`: toplayıcı, dolu port için açıklamalı hata, Ctrl+C'de tamponu boşaltıp kapanma (Windows'ta terminalde denendi). `vitalscope report`: sayfa bazlı p75 (route şablonuyla gruplanır, tekrar gönderilen metriğin son değeri sayılır), renkten bağımsız `~` / `!` işaretleri, gruplanmış hatalar; tarayıcıdan gelen metinlerde kontrol karakterleri temizlenir. Node 24.15 altında anlaşılır hata |
+| #33 | SDK yerel kurulum | `init()` ayarsız çalışır: `key` ve `endpoint` isteğe bağlı, varsayılan adres `http://localhost:8787/v1/e`. Yerel olmayan sayfada (`localhost`, `127.0.0.1`, `[::1]`, `*.localhost` dışı) SDK hiçbir şey yapmaz; e2e testi 3 tarayıcıda doğrular. Script etiketi ayarsız başlar, `data-manual` ile `init()` bekler. README kurulum belgesi: geliştirme kontrolü arkasında dinamik import. Vite ve Next.js'te gerçek uygulamayla denendi: paket kurulu değilken build geçer, çıktıda SDK olmaz, dev modunda veri rapora ulaşır |
 
-Durum: 347 birim testi (protokol 53, SDK 149, CLI 145; `SIGTERM` testi Windows'ta atlanır) + 42 e2e testi (14 senaryo × 3 tarayıcı; 38 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut (`size-limit`, minify + gzip, bağımlılıklar dahil) ve bütçe: çekirdek 4,76 / 5 kB, attribution 5,6 / 5,8 kB, `/react` 4,66 / 4,9 kB, `/next` 4,9 / 5,15 kB, IIFE 4,83 / 5,1 kB.
+Durum: 366 birim testi (protokol 53, SDK 168, CLI 145; `SIGTERM` testi Windows'ta atlanır) + 45 e2e testi (15 senaryo × 3 tarayıcı; 38 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut (`size-limit`, minify + gzip, bağımlılıklar dahil) ve bütçe: çekirdek 4,82 / 5 kB, attribution 5,66 / 5,8 kB, `/react` 4,73 / 4,9 kB, `/next` 4,96 / 5,15 kB, IIFE 4,9 / 5,1 kB.
 
 **Boyut bütçesi kararı (#16):** dokümandaki çekirdek < 3 KB ve attribution < 5 KB tutmuyor. Çekirdeği 3 KB'a indirmek için yaklaşık üçte birini (hata yakalama, SPA takibi gibi) ayrı giriş noktalarına taşımak gerekirdi. Bunun yerine bütçeler ölçülen boyutun ≈ %5 üstüne kondu; CI büyümeyi engeller. Not: playground'da attribution sayfası ayrı build edilir; aynı build'de SDK ortak bir parçaya taşınıyor ve `init` sıcak açılışta ≈ 0,2 ms (4× yavaşlatmada) yavaşlıyordu. SDK'yı ayrı bir chunk'a koyan sitelerde de benzer bir fark beklenebilir.
 
@@ -46,7 +47,6 @@ Durum: 347 birim testi (protokol 53, SDK 149, CLI 145; `SIGTERM` testi Windows't
 
 Sırayla:
 
-- [ ] **SDK yerel kurulum:** anahtar kuralı (`pk_` + 24 karakter) yerel kullanımda nasıl sadeleşecek; SDK'nın canlı siteye yanlışlıkla çıkmaması (`devDependencies` paketi `--omit=dev` kurulumda build'i kırar, bundler'a girerse canlı kullanıcıda da çalışır); yerel olmayan adreste sessizce kapanma. Kurulum belgesi: React, Next.js, düz `<script>`
 - [ ] **Ölçüm doğruluğu:** geliştirme sunucusunun sayıları canlıdan farklıdır (sıkıştırılmamış kod, HMR). Olaylar `development` / `production` olarak ayrılır, panel ve rapor uyarır, belge production build üzerinden ölçmeyi anlatır
 - [ ] **Hata gruplama:** hata fingerprint'i, aynı hatanın tek satırda sayılması
 - [ ] **Grafik paketi:** `packages/charts`, SVG + yoğun serilerde Canvas
@@ -54,7 +54,7 @@ Sırayla:
 - [ ] **Hatalar ve release'ler:** hata listesi ve detayı, iki release'in karşılaştırılması
 - [ ] **Canlı görünüm:** toplayıcıdan panele SSE; sayfayı yenileyince ölçüm hemen görünür
 - [ ] **Kalite:** seed + sorgu süresi testleri, E2E, XSS testi (hata mesajları panelde gösterilir), axe, büyük dosyada davranış
-- [ ] **Yayın:** CLI paketi için npm hazırlığı, kök README, tanıtım görselleri
+- [ ] **Yayın:** CLI paketi için npm hazırlığı, kök README, tanıtım görselleri. Changesets'in sürüm PR'ı CLI ile birlikte merge edilmeli: SDK'nın yeni README'si henüz npm'de olmayan toplayıcıyı anlatıyor
 - [ ] **Dogfooding ve case study:** enflasyon uygulaması ve ecbakar.com'da yerel kullanım, ecbakar.com yazısı
 
 ### Karar bekleyen fikirler
