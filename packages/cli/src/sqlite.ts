@@ -4,6 +4,8 @@ import { DatabaseSync } from "node:sqlite";
 import { toRows, type Rows } from "./rows.js";
 import type { EventSink } from "./types.js";
 
+export const DB_FILE = "vitalscope.db";
+
 const COMMON = ["ts", "received_at", "sample_rate", "sdk", "path", "route", "release", "env", "device", "conn", "nav_type", "session_id"];
 
 const COLUMNS: Record<keyof Rows, string[]> = {
@@ -61,7 +63,7 @@ export function openStore(dir: string): Store {
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, ".gitignore"), "*\n");
 
-  const db = new DatabaseSync(join(dir, "vitalscope.db"));
+  const db = new DatabaseSync(join(dir, DB_FILE));
   // WAL: rapor ve panel, toplayıcı yazarken de okuyabilir. Kilitliyse kısa süre beklenir; sonrası tamponun yeniden denemesi.
   db.exec("PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 1000;");
   db.exec(SCHEMA);

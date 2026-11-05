@@ -1,6 +1,5 @@
 import { createApp } from "./app.js";
 import { createEventBuffer } from "./buffer.js";
-import type { Env } from "./env.js";
 import { startServer, type RunningServer } from "./server.js";
 import { openStore } from "./sqlite.js";
 import type { EventSink } from "./types.js";
@@ -13,17 +12,23 @@ function logFailures(sink: EventSink): EventSink {
   return {
     write: (events) =>
       sink.write(events).catch((error: unknown) => {
-        console.error(`SQLite yazması başarısız (${events.length} olay): ${error instanceof Error ? error.message : "bilinmeyen hata"}`);
+        console.error(`Could not write ${events.length} events: ${error instanceof Error ? error.message : "unknown error"}`);
         throw error;
       }),
   };
 }
 
 /** Depoyu ve servisi kurar; `shutdown` tamponu boşaltıp veritabanını da kapatır. */
-export async function start(env: Env): Promise<RunningServer> {
-  const store = openStore(env.VITALSCOPE_DIR);
+export async function start({ port, dir }: { port: number; dir: string }): Promise<RunningServer> {
+  const store = openStore(dir);
   const buffer = createEventBuffer(logFailures(store.sink));
-  const server = await startServer(createApp({ buffer }), buffer, { port: env.PORT, hostname: HOSTNAME });
+  let server: RunningServer;
+  try {
+    server = await startServer(createApp({ buffer }), buffer, { port, hostname: HOSTNAME });
+  } catch (error) {
+    store.close();
+    throw error;
+  }
 
   let closing: Promise<number> | undefined;
   return {

@@ -5,7 +5,7 @@ export default {
     "scope-enum": [
       2,
       "always",
-      ["sdk", "protocol", "ingest", "dashboard", "charts", "infra", "repo", "deps"],
+      ["sdk", "protocol", "cli", "ingest", "dashboard", "charts", "infra", "repo", "deps"],
     ],
   },
 };

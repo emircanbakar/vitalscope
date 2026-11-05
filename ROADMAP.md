@@ -1,12 +1,12 @@
 # Yol haritası ve durum
 
-Son güncelleme: 5 Kasım 2026 (main: `8c1b5ce`)
+Son güncelleme: 5 Kasım 2026 (main: `8f07f38`)
 
 Vitalscope, geliştiricinin kendi bilgisayarında çalışan, `devDependencies`'e kurulan açık kaynak bir performans aracıdır. Core Web Vitals ölçümlerini ve JavaScript hatalarını toplar, sonuçları yerel bir panelde ve terminalde gösterir. Sunucu, hesap ve Docker gerektirmez. Üç parçadan oluşur:
 
 - **SDK (`@vitalscope/sdk`):** uygulamaya eklenen, sıfır bağımlılıklı tarayıcı kütüphanesi. Metrikleri, hataları ve sayfa görüntülemelerini toplar.
-- **Yerel toplayıcı (Hono):** olayları doğrular ve projedeki yerel bir dosyaya yazar. Sadece `127.0.0.1` üzerinde çalışır.
-- **CLI ve panel (`@vitalscope/cli`):** `vitalscope dev` toplayıcıyı ve paneli başlatır, `vitalscope report` sonuçları terminalde gösterir.
+- **CLI (`@vitalscope/cli`, Node 24.15+):** `vitalscope dev` yerel toplayıcıyı (Hono) başlatır; olayları doğrulayıp projedeki yerel bir dosyaya yazar, sadece `127.0.0.1` üzerinde çalışır. `vitalscope report` sonuçları terminalde gösterir.
+- **Panel:** toplanan veriyi gösteren yerel sayfa, CLI paketinden sunulur (henüz yok).
 
 Veri katmanı: proje klasöründe tek SQLite dosyası (`.vitalscope/`).
 
@@ -36,8 +36,9 @@ Kurallar: her adım ayrı branch ve PR, CI yeşil olmadan merge yok, PR'lar squa
 | #29 | Ingest MVP | Çalışan servis: ClickHouse `EventSink` (tablo başına tek insert, sadece INSERT yetkili kullanıcı), Postgres anahtar çözümleme, `env.ts`, `main.ts` (`SIGTERM`, `SIGINT`), gerçek sorguyla `/readyz`. Yazılamayan parti yeni olaylarla birleşmeden aynen yeniden denenir, ClickHouse tekrarını tekilleştirir. Uç `ts` değerleri (7 günden eski, 1 saatten ileri) sunucu zamanına düşer, bozuk kaçış dizisi partiyi düşürmez, bitmeyen istek kapanışı 2 sn'den fazla bekletmez |
 | #30 | Yön kararı | Yol haritası yerel geliştirici aracına göre yeniden yazıldı |
 | #31 | Yerel toplayıcı | `apps/ingest` Docker'sız çalışır: olaylar `.vitalscope/vitalscope.db` dosyasına (`node:sqlite`, WAL) tek transaction'da yazılır, klasördeki `.gitignore` ölçümleri git dışında tutar. Sadece `127.0.0.1`'e bağlanır; yerel olmayan `Origin` ve `Host` reddedilir (DNS rebinding dahil). Anahtarın sadece biçimi doğrulanır, proje kavramı ve `/readyz` kalktı. ClickHouse, Postgres, `packages/db`, `infra/` ve CI'daki `integration` işi kaldırıldı. Gerçek SDK ile Chromium, Firefox, WebKit'te elle denendi |
+| #32 | CLI | `apps/ingest` → `packages/cli` (`@vitalscope/cli`, henüz yayınlanmıyor). `vitalscope dev`: toplayıcı, dolu port için açıklamalı hata, Ctrl+C'de tamponu boşaltıp kapanma (Windows'ta terminalde denendi). `vitalscope report`: sayfa bazlı p75 (route şablonuyla gruplanır, tekrar gönderilen metriğin son değeri sayılır), renkten bağımsız `~` / `!` işaretleri, gruplanmış hatalar; tarayıcıdan gelen metinlerde kontrol karakterleri temizlenir. Node 24.15 altında anlaşılır hata |
 
-Durum: 317 birim testi (protokol 53, SDK 149, ingest 115; `SIGTERM` testi Windows'ta atlanır) + 42 e2e testi (14 senaryo × 3 tarayıcı; 38 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut (`size-limit`, minify + gzip, bağımlılıklar dahil) ve bütçe: çekirdek 4,76 / 5 kB, attribution 5,6 / 5,8 kB, `/react` 4,66 / 4,9 kB, `/next` 4,9 / 5,15 kB, IIFE 4,83 / 5,1 kB.
+Durum: 347 birim testi (protokol 53, SDK 149, CLI 145; `SIGTERM` testi Windows'ta atlanır) + 42 e2e testi (14 senaryo × 3 tarayıcı; 38 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut (`size-limit`, minify + gzip, bağımlılıklar dahil) ve bütçe: çekirdek 4,76 / 5 kB, attribution 5,6 / 5,8 kB, `/react` 4,66 / 4,9 kB, `/next` 4,9 / 5,15 kB, IIFE 4,83 / 5,1 kB.
 
 **Boyut bütçesi kararı (#16):** dokümandaki çekirdek < 3 KB ve attribution < 5 KB tutmuyor. Çekirdeği 3 KB'a indirmek için yaklaşık üçte birini (hata yakalama, SPA takibi gibi) ayrı giriş noktalarına taşımak gerekirdi. Bunun yerine bütçeler ölçülen boyutun ≈ %5 üstüne kondu; CI büyümeyi engeller. Not: playground'da attribution sayfası ayrı build edilir; aynı build'de SDK ortak bir parçaya taşınıyor ve `init` sıcak açılışta ≈ 0,2 ms (4× yavaşlatmada) yavaşlıyordu. SDK'yı ayrı bir chunk'a koyan sitelerde de benzer bir fark beklenebilir.
 
@@ -45,7 +46,6 @@ Durum: 317 birim testi (protokol 53, SDK 149, ingest 115; `SIGTERM` testi Window
 
 Sırayla:
 
-- [ ] **CLI:** `@vitalscope/cli`, komut adı `vitalscope`. `vitalscope dev` toplayıcıyı başlatır, `vitalscope report` sayfa bazlı p75 değerlerini ve hataları terminalde tablo olarak gösterir
 - [ ] **SDK yerel kurulum:** anahtar kuralı (`pk_` + 24 karakter) yerel kullanımda nasıl sadeleşecek; SDK'nın canlı siteye yanlışlıkla çıkmaması (`devDependencies` paketi `--omit=dev` kurulumda build'i kırar, bundler'a girerse canlı kullanıcıda da çalışır); yerel olmayan adreste sessizce kapanma. Kurulum belgesi: React, Next.js, düz `<script>`
 - [ ] **Ölçüm doğruluğu:** geliştirme sunucusunun sayıları canlıdan farklıdır (sıkıştırılmamış kod, HMR). Olaylar `development` / `production` olarak ayrılır, panel ve rapor uyarır, belge production build üzerinden ölçmeyi anlatır
 - [ ] **Hata gruplama:** hata fingerprint'i, aynı hatanın tek satırda sayılması
@@ -118,5 +118,5 @@ PR #11'deki e2e senaryolarından çıkanlar ve PR #13'teki çözümleri. Hedef: 
 
 ## Açık sorular
 
-- En düşük Node sürümü (CLI adımından önce): `node:sqlite` Node 24.15'te release candidate oldu, yani henüz kararlı değil; Node 22 kullanan geliştiriciler dışarıda kalır. Alternatifi `better-sqlite3`, ama yerel derleme gerektirir
+- `node:sqlite` kararlı olana kadar izlenmeli (Node 24.15'te release candidate). Karar: en düşük sürüm Node 24.15; sıfır bağımlılık, Node 22 kullanıcılarından daha değerli bulundu. Node dokümanının beta sayfası `DatabaseSync`'i `Database`'in eski adı olarak gösteriyor, yayından önce kontrol edilmeli
 - Soft navigation (SPA içi LCP): tarayıcı API'si olgunlaşınca v2
