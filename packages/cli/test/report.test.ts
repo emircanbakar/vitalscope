@@ -30,7 +30,7 @@ const pageview = (ctx: Ctx = {}) => stored({ t: "pageview", ts: NOW }, ctx);
 let nextId = 0;
 const vital = (name: "LCP" | "INP" | "CLS" | "FCP" | "TTFB", value: number, ctx: Ctx = {}, id = `m${nextId++}`) =>
   stored({ t: "vital", ts: NOW, name, value, rating: "good", id }, ctx);
-const error = (msg: string, type = "TypeError", ctx: Ctx = {}) => stored({ t: "error", ts: NOW, type, msg, stack: [], handled: false }, ctx);
+const error = (msg: string, type = "TypeError", ctx: Ctx = {}, stack: string[] = [], ts = NOW) => stored({ t: "error", ts, type, msg, stack, handled: false }, ctx);
 
 async function reportOf(events: StoredEvent[]) {
   const dir = tempDir();
@@ -103,9 +103,28 @@ describe("buildReport", () => {
     expect(report).not.toContain("p75 by page");
   });
 
+  it("counts the same error once, however its values and position change", async () => {
+    const report = await reportOf([
+      error("User 42 not found", "Error", {}, ["at loadUser (http://localhost:5173/src/lib.js?t=1:1:38)"], NOW - 2000),
+      error("User 43 not found", "Error", {}, ["loadUser@http://localhost:4173/src/lib.js:9:1"], NOW - 1000),
+      error("User 44 not found", "Error", {}, ["loadUser@http://localhost:4173/src/lib.js:1:47"], NOW),
+    ]);
+    expect(report).toContain("3×  Error: User 44 not found\n        at loadUser (/src/lib.js)");
+    expect(report).not.toContain("User 42");
+  });
+
+  it("keeps the same message from different places apart", async () => {
+    const report = await reportOf([
+      error("boom", "Error", {}, ["at a (http://localhost:1/src/a.js:1:1)"]),
+      error("boom", "Error", {}, ["at b (http://localhost:1/src/b.js:1:1)"]),
+    ]);
+    expect(report).toContain("1×  Error: boom\n        at a (/src/a.js)");
+    expect(report).toContain("1×  Error: boom\n        at b (/src/b.js)");
+  });
+
   it("removes terminal control sequences from page data", async () => {
     const hostile = "\u001b]0;pwned\u0007\u001b[2Jboom\r\n‮\ud800";
-    const report = await reportOf([pageview({ path: `/\u001b[31mred` }), error(hostile, `\u001b[2J`)]);
+    const report = await reportOf([pageview({ path: `/\u001b[31mred` }), error(hostile, `\u001b[2J`, {}, [`at \u001b[2Jfn (http://localhost:1/\u001b[2Ja.js:1:1)`])]);
     // Satır sonu tablonun kendisinden gelir; başka kontrol karakteri kalmamalı.
     expect(report.replaceAll("\n", "")).not.toMatch(/[\p{Cc}\p{Cf}]/u);
     expect(report.isWellFormed()).toBe(true);
