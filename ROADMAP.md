@@ -1,6 +1,6 @@
 # Yol haritası ve durum
 
-Son güncelleme: 5 Kasım 2026 (main: `a8b610e`)
+Son güncelleme: 5 Kasım 2026 (main: `8c1b5ce`)
 
 Vitalscope, geliştiricinin kendi bilgisayarında çalışan, `devDependencies`'e kurulan açık kaynak bir performans aracıdır. Core Web Vitals ölçümlerini ve JavaScript hatalarını toplar, sonuçları yerel bir panelde ve terminalde gösterir. Sunucu, hesap ve Docker gerektirmez. Üç parçadan oluşur:
 
@@ -10,7 +10,7 @@ Vitalscope, geliştiricinin kendi bilgisayarında çalışan, `devDependencies`'
 
 Veri katmanı: proje klasöründe tek SQLite dosyası (`.vitalscope/`).
 
-**Yön kararı (5 Kasım 2026):** Sunuculu gerçek kullanıcı izleme platformu yerine yerel geliştirici aracına geçildi. Kazanç: masraf yok, tek komutla kurulum, çok daha küçük kapsam. Bedel: sadece geliştiricinin kendi tarayıcısından gelen veri görünür; gerçek kullanıcıların cihazları, ülkeleri ve karşılaştıkları hatalar görünmez. SDK'nın `endpoint` ayarı kalır, bu yüzden sunucu seçeneği ileride yeniden eklenebilir. Aşağıdaki "Tamamlananlar" tablosu geçmiş kaydıdır; #28 ve #29'daki ClickHouse ve Postgres kısmı "Yerel toplayıcı" adımında kaldırılır.
+**Yön kararı (5 Kasım 2026):** Sunuculu gerçek kullanıcı izleme platformu yerine yerel geliştirici aracına geçildi. Kazanç: masraf yok, tek komutla kurulum, çok daha küçük kapsam. Bedel: sadece geliştiricinin kendi tarayıcısından gelen veri görünür; gerçek kullanıcıların cihazları, ülkeleri ve karşılaştıkları hatalar görünmez. SDK'nın `endpoint` ayarı kalır, bu yüzden sunucu seçeneği ileride yeniden eklenebilir. Aşağıdaki "Tamamlananlar" tablosu geçmiş kaydıdır; #28 ve #29'daki ClickHouse ve Postgres kısmı #31'de kaldırıldı.
 
 Kurallar: her adım ayrı branch ve PR, CI yeşil olmadan merge yok, PR'lar squash ile birleşir. Commit'ler Conventional Commits, scope zorunlu (`sdk`, `protocol`, `ingest`, `dashboard`, `charts`, `infra`, `repo`, `deps`), SSH ile imzalı.
 
@@ -34,8 +34,10 @@ Kurallar: her adım ayrı branch ve PR, CI yeşil olmadan merge yok, PR'lar squa
 | #27 | Ingest çekirdeği | `apps/ingest` (Hono), Docker gerektirmeyen kısım: `POST /v1/e` (64 KB sınırı, şema, protokol sürümü, anahtar, Origin, CORS, boş gövdeli yanıtlar), `/healthz`, `/readyz`, 60 sn'lik anahtar önbelleği ("yok" sonucu dahil), toplu yazma tamponu (1 sn / 5.000 olay, 50.000 sınır, üstel geri çekilme), kapanışta tamponu boşaltma. Depo ve anahtar kaynağı arabirim arkasında; henüz çalıştırılabilir süreç yok |
 | #28 | Altyapı | `infra/docker-compose.dev.yml` (Postgres 16, ClickHouse 26.8; sadece localhost), `packages/db`: Drizzle şeması (`project`, `public_key`), ClickHouse tabloları (`vitals`, `errors`, `pageviews`, `custom_events`), tekrar çalıştırılabilir `migrate`, sadece INSERT ve salt okunur roller (okuma 10 sn / 100.000 satır sınırlı). CI'da `integration` işi. Better Auth, `secret_key`, `audit_log` dashboard adımında, Redis rate limit adımında gelir |
 | #29 | Ingest MVP | Çalışan servis: ClickHouse `EventSink` (tablo başına tek insert, sadece INSERT yetkili kullanıcı), Postgres anahtar çözümleme, `env.ts`, `main.ts` (`SIGTERM`, `SIGINT`), gerçek sorguyla `/readyz`. Yazılamayan parti yeni olaylarla birleşmeden aynen yeniden denenir, ClickHouse tekrarını tekilleştirir. Uç `ts` değerleri (7 günden eski, 1 saatten ileri) sunucu zamanına düşer, bozuk kaçış dizisi partiyi düşürmez, bitmeyen istek kapanışı 2 sn'den fazla bekletmez |
+| #30 | Yön kararı | Yol haritası yerel geliştirici aracına göre yeniden yazıldı |
+| #31 | Yerel toplayıcı | `apps/ingest` Docker'sız çalışır: olaylar `.vitalscope/vitalscope.db` dosyasına (`node:sqlite`, WAL) tek transaction'da yazılır, klasördeki `.gitignore` ölçümleri git dışında tutar. Sadece `127.0.0.1`'e bağlanır; yerel olmayan `Origin` ve `Host` reddedilir (DNS rebinding dahil). Anahtarın sadece biçimi doğrulanır, proje kavramı ve `/readyz` kalktı. ClickHouse, Postgres, `packages/db`, `infra/` ve CI'daki `integration` işi kaldırıldı. Gerçek SDK ile Chromium, Firefox, WebKit'te elle denendi |
 
-Durum: 295 birim testi (protokol 53, SDK 149, ingest 93) + 17 entegrasyon testi (gerçek Postgres ve ClickHouse; `SIGTERM` testi Windows'ta atlanır) + 42 e2e testi (14 senaryo × 3 tarayıcı; 38 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut (`size-limit`, minify + gzip, bağımlılıklar dahil) ve bütçe: çekirdek 4,76 / 5 kB, attribution 5,6 / 5,8 kB, `/react` 4,66 / 4,9 kB, `/next` 4,9 / 5,15 kB, IIFE 4,83 / 5,1 kB.
+Durum: 317 birim testi (protokol 53, SDK 149, ingest 115; `SIGTERM` testi Windows'ta atlanır) + 42 e2e testi (14 senaryo × 3 tarayıcı; 38 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut (`size-limit`, minify + gzip, bağımlılıklar dahil) ve bütçe: çekirdek 4,76 / 5 kB, attribution 5,6 / 5,8 kB, `/react` 4,66 / 4,9 kB, `/next` 4,9 / 5,15 kB, IIFE 4,83 / 5,1 kB.
 
 **Boyut bütçesi kararı (#16):** dokümandaki çekirdek < 3 KB ve attribution < 5 KB tutmuyor. Çekirdeği 3 KB'a indirmek için yaklaşık üçte birini (hata yakalama, SPA takibi gibi) ayrı giriş noktalarına taşımak gerekirdi. Bunun yerine bütçeler ölçülen boyutun ≈ %5 üstüne kondu; CI büyümeyi engeller. Not: playground'da attribution sayfası ayrı build edilir; aynı build'de SDK ortak bir parçaya taşınıyor ve `init` sıcak açılışta ≈ 0,2 ms (4× yavaşlatmada) yavaşlıyordu. SDK'yı ayrı bir chunk'a koyan sitelerde de benzer bir fark beklenebilir.
 
@@ -43,7 +45,6 @@ Durum: 295 birim testi (protokol 53, SDK 149, ingest 93) + 17 entegrasyon testi 
 
 Sırayla:
 
-- [ ] **Yerel toplayıcı:** `EventSink` için SQLite (`node:sqlite`, Node 24'te yerleşik; yerel bağımlılık derlemesi yok); `ResolveKey` yerine sabit yerel proje; `.vitalscope/` klasörü. Sadece `127.0.0.1`'e bağlanır, sadece yerel `Origin` kabul edilir ve `Host` başlığı kontrol edilir (ziyaret edilen başka bir site veri gönderememeli, DNS rebinding işe yaramamalı). `apps/ingest` içindeki ClickHouse ve Postgres kodu, `packages/db`, `infra/` ve CI'daki `integration` işi kaldırılır; entegrasyon testleri SQLite ile yeniden yazılır
 - [ ] **CLI:** `@vitalscope/cli`, komut adı `vitalscope`. `vitalscope dev` toplayıcıyı başlatır, `vitalscope report` sayfa bazlı p75 değerlerini ve hataları terminalde tablo olarak gösterir
 - [ ] **SDK yerel kurulum:** anahtar kuralı (`pk_` + 24 karakter) yerel kullanımda nasıl sadeleşecek; SDK'nın canlı siteye yanlışlıkla çıkmaması (`devDependencies` paketi `--omit=dev` kurulumda build'i kırar, bundler'a girerse canlı kullanıcıda da çalışır); yerel olmayan adreste sessizce kapanma. Kurulum belgesi: React, Next.js, düz `<script>`
 - [ ] **Ölçüm doğruluğu:** geliştirme sunucusunun sayıları canlıdan farklıdır (sıkıştırılmamış kod, HMR). Olaylar `development` / `production` olarak ayrılır, panel ve rapor uyarır, belge production build üzerinden ölçmeyi anlatır
@@ -78,6 +79,7 @@ PR #11'deki e2e senaryolarından çıkanlar ve PR #13'teki çözümleri. Hedef: 
 | CLS | Firefox ve WebKit'te ölçülmüyor | Tarayıcılar Layout Instability API'yi desteklemiyor | Test tarafında çözüm yok; test "olay gönderilmez, sayfa kırılmaz" durumunu doğruluyor. Dashboard'da CLS'nin sadece Chromium tabanlı tarayıcılardan geldiği belirtilmeli, README'ye yazılmalı |
 | LCP değerlendirmesi | Çözüldü, izlenmeli | Yavaş açılan Firefox'ta 3 sn gecikmeye açılış süresi eklenip 4 sn'yi geçebiliyor | Test sabit `needs-improvement` yerine eşiklerle tutarlılığı kontrol ediyor; daha kararlı hale getirmek için ölçümden önce ısınma (warm-up) navigasyonu düşünülebilir |
 | `page.close()` Firefox'ta | Çoğunlukla doğrulanıyor; olay eksik ve kesinti kanıtlıysa atlanıyor (yerelde 40'ta ≈ 5) | Playwright'ın Firefox'u kapanışta o an çalışan pagehide betiğini yarıda kesiyor (`finally` bile çalışmıyor); kesinti SDK'nın dinleyicisine denk gelirse batch hiç gönderilmiyor. Firefox kapanışta önce pagehide, sonra visibilitychange tetikliyor. SDK hatası değil: önüne yoğun bir dinleyici konunca 60/60 geliyor | Çözüldü (#15): test her pagehide dinleyicisini sarar, en sondaki kontrol beacon'ı yarıda kalan olup olmadığını bildirir |
+| Firefox'ta `sendBeacon` "başarısız" görünür | Hata değil | Beacon kimlik bilgisiyle gider, toplayıcı bilerek `Allow-Credentials` vermez. Firefox isteği iletir (202), sadece yanıtın okunmasını engeller; Playwright bunu `NS_ERROR_DOM_NETWORK_ERR` olarak raporlar. Her şeyi kabul eden kontrol sunucusunda bu kayıt çıkmadı, farkın nedeni bulunmadı | Olaylar toplayıcıya ulaşıyor, SDK yanıtı okumuyor; yapılacak bir şey yok |
 | LCP görseli | Çözüldü | Chromium düşük entropili (tek renk) görselleri LCP adayı saymıyor | Senaryo rastgele pikselli görsel çiziyor; gerçek sitelerde de logo / düz renkli görsellerin LCP sayılmayacağı README'ye not edilmeli |
 
 - [x] Sahte ingest sunucusu ile e2e yakalaması (#13)
@@ -116,5 +118,5 @@ PR #11'deki e2e senaryolarından çıkanlar ve PR #13'teki çözümleri. Hedef: 
 
 ## Açık sorular
 
-- `node:sqlite`'ın kararlılık durumu ve desteklenecek en düşük Node sürümü (Yerel toplayıcı adımında; 24.22.1'de çalıştığı denendi)
+- En düşük Node sürümü (CLI adımından önce): `node:sqlite` Node 24.15'te release candidate oldu, yani henüz kararlı değil; Node 22 kullanan geliştiriciler dışarıda kalır. Alternatifi `better-sqlite3`, ama yerel derleme gerektirir
 - Soft navigation (SPA içi LCP): tarayıcı API'si olgunlaşınca v2

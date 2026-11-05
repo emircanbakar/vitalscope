@@ -5,12 +5,11 @@ import { LIMITS } from "@vitalscope/protocol";
 import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/app.js";
 import { createEventBuffer } from "../src/buffer.js";
-import type { Project, ResolveKey } from "../src/types.js";
 import { fakeSink } from "./helpers.js";
 
 const KEY = "pk_3f9a0c1d2e4b5a6978c0d1e2";
-const ORIGIN = "https://site.test";
-const project: Project = { id: "p1", allowedOrigins: ["site.test"] };
+const ORIGIN = "http://localhost:3000";
+const HOST = "127.0.0.1:8787";
 
 const batch = {
   v: 1,
@@ -20,13 +19,14 @@ const batch = {
   e: [{ t: "pageview", ts: 1730000000000 }, { t: "custom", ts: 1730000000001, name: "x" }],
 };
 
-function setup(resolveKey: ResolveKey = async () => project, isReady?: () => Promise<boolean>) {
+function setup() {
   const fake = fakeSink();
   const buffer = createEventBuffer(fake.sink, { flushAt: 1_000_000 });
-  const app = createApp({ resolveKey, buffer, now: () => 42, ...(isReady ? { isReady } : {}) });
+  const app = createApp({ buffer, now: () => 42 });
+  const request = (url: string, init: RequestInit = {}) => app.request(url, { ...init, headers: { Host: HOST, ...init.headers } } as RequestInit);
   const post = (body: string, headers: Record<string, string> = {}) =>
-    app.request("/v1/e", { method: "POST", body, headers: { "Content-Type": "text/plain;charset=UTF-8", Origin: ORIGIN, ...headers } });
-  return { app, buffer, fake, post };
+    request("/v1/e", { method: "POST", body, headers: { "Content-Type": "text/plain;charset=UTF-8", Origin: ORIGIN, ...headers } });
+  return { buffer, fake, request, post };
 }
 
 async function expectEmpty(res: Response, status: number) {
@@ -41,14 +41,14 @@ describe("POST /v1/e", () => {
     await expectEmpty(res, 202);
     await buffer.flush();
     expect(fake.written()).toEqual([
-      expect.objectContaining({ projectId: "p1", receivedAt: 42, sdk: "0.1.1", event: batch.e[0] }),
-      expect.objectContaining({ projectId: "p1", receivedAt: 42, sdk: "0.1.1", event: batch.e[1] }),
+      expect.objectContaining({ receivedAt: 42, sdk: "0.1.1", event: batch.e[0] }),
+      expect.objectContaining({ receivedAt: 42, sdk: "0.1.1", event: batch.e[1] }),
     ]);
     // Şemanın varsayılanları uygulanmış olur.
     expect(fake.written()[0]?.ctx).toMatchObject({ env: "production", sr: 1 });
   });
 
-  it("reflects only an allowed Origin and never allows credentials", async () => {
+  it("reflects only a local Origin and never allows credentials", async () => {
     const { post } = setup();
     const res = await post(JSON.stringify(batch));
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe(ORIGIN);
@@ -69,11 +69,11 @@ describe("POST /v1/e", () => {
   });
 
   it("rejects a body over the limit with 413, by header or by actual size", async () => {
-    const { app, post } = setup();
+    const { request, post } = setup();
     const large = "x".repeat(LIMITS.maxBodyBytes + 1);
     await expectEmpty(await post(large), 413);
     const stream = new Blob([large]).stream();
-    const res = await app.request("/v1/e", {
+    const res = await request("/v1/e", {
       method: "POST",
       body: stream,
       duplex: "half",
@@ -92,21 +92,14 @@ describe("POST /v1/e", () => {
     await expectEmpty(await post(body), 400);
   });
 
-  it("rejects an unsupported protocol version with 422 before looking up the key", async () => {
-    const resolveKey = vi.fn(async () => project);
-    const { post } = setup(resolveKey);
+  it("rejects an unsupported protocol version with 422", async () => {
+    const { post } = setup();
     await expectEmpty(await post(JSON.stringify({ ...batch, v: 2 })), 422);
-    expect(resolveKey).not.toHaveBeenCalled();
-  });
-
-  it("rejects an unknown key with 401", async () => {
-    const { buffer, post } = setup(async () => null);
-    await expectEmpty(await post(JSON.stringify(batch)), 401);
-    expect(buffer.stats().size).toBe(0);
   });
 
   it.each([
     ["a foreign Origin", { Origin: "https://other.test" }],
+    ["a look-alike Origin", { Origin: "http://localhost.evil.io" }],
     ["a null Origin", { Origin: "null" }],
   ])("rejects %s with 403", async (_, headers) => {
     const { buffer, post } = setup();
@@ -115,26 +108,36 @@ describe("POST /v1/e", () => {
   });
 
   it("rejects a missing Origin with 403", async () => {
-    const { app, buffer } = setup();
-    const res = await app.request("/v1/e", { method: "POST", body: JSON.stringify(batch), headers: { "Content-Type": "text/plain" } });
+    const { buffer, request } = setup();
+    const res = await request("/v1/e", { method: "POST", body: JSON.stringify(batch), headers: { "Content-Type": "text/plain" } });
     await expectEmpty(res, 403);
     expect(buffer.stats().size).toBe(0);
   });
 
-  it("answers 503 without details when the key source fails", async () => {
-    const { post } = setup(async () => {
-      throw new Error("postgres://secret@db");
-    });
-    await expectEmpty(await post(JSON.stringify(batch)), 503);
-  });
-
   it("still answers 202 when the buffer is full; the drop is counted", async () => {
-    const fake = fakeSink();
-    const buffer = createEventBuffer(fake.sink, { maxSize: 1, flushAt: 100 });
-    const app = createApp({ resolveKey: async () => project, buffer });
-    const res = await app.request("/v1/e", { method: "POST", body: JSON.stringify(batch), headers: { "Content-Type": "text/plain", Origin: ORIGIN } });
+    const buffer = createEventBuffer(fakeSink().sink, { maxSize: 1, flushAt: 100 });
+    const app = createApp({ buffer });
+    const res = await app.request("/v1/e", {
+      method: "POST",
+      body: JSON.stringify(batch),
+      headers: { Host: HOST, "Content-Type": "text/plain", Origin: ORIGIN },
+    });
     expect(res.status).toBe(202);
     expect(buffer.stats()).toEqual({ size: 1, dropped: 1 });
+  });
+});
+
+describe("Host check", () => {
+  it.each(["evil.io:8787", "192.168.1.10:8787"])("rejects every route for Host %s", async (host) => {
+    const { buffer, request, post } = setup();
+    await expectEmpty(await request("/healthz", { headers: { Host: host } }), 403);
+    await expectEmpty(await post(JSON.stringify(batch), { Host: host }), 403);
+    expect(buffer.stats().size).toBe(0);
+  });
+
+  it("rejects a request without a Host header", async () => {
+    const buffer = createEventBuffer(fakeSink().sink);
+    await expectEmpty(await createApp({ buffer }).request("/healthz"), 403);
   });
 });
 
@@ -159,8 +162,7 @@ describe("protocol fixtures", () => {
 
 describe("OPTIONS /v1/e", () => {
   it("allows only POST and Content-Type, cached for 24 hours, without credentials", async () => {
-    const { app } = setup();
-    const res = await app.request("/v1/e", { method: "OPTIONS", headers: { Origin: ORIGIN } });
+    const res = await setup().request("/v1/e", { method: "OPTIONS", headers: { Origin: ORIGIN } });
     await expectEmpty(res, 204);
     expect(Object.fromEntries(res.headers)).toMatchObject({
       "access-control-allow-origin": ORIGIN,
@@ -170,29 +172,25 @@ describe("OPTIONS /v1/e", () => {
     });
     expect(res.headers.get("Access-Control-Allow-Credentials")).toBeNull();
   });
+
+  it("does not allow a foreign Origin", async () => {
+    const res = await setup().request("/v1/e", { method: "OPTIONS", headers: { Origin: "https://other.test" } });
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
+  });
 });
 
 describe("other routes", () => {
-  it("/healthz answers without checking dependencies", async () => {
-    const isReady = vi.fn(async () => false);
-    await expectEmpty(await setup(undefined, isReady).app.request("/healthz"), 204);
-    expect(isReady).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    ["ready", async () => true, 204],
-    ["not ready", async () => false, 503],
-    ["failing", async () => Promise.reject(new Error("down")), 503],
-  ])("/readyz when %s", async (_, isReady, status) => {
-    await expectEmpty(await setup(undefined, isReady).app.request("/readyz"), status);
+  it("/healthz answers", async () => {
+    await expectEmpty(await setup().request("/healthz"), 204);
   });
 
   it("answers unknown routes with an empty 404 and sets nosniff everywhere", async () => {
-    const { app, post } = setup();
-    const missing = await app.request("/nope");
+    const { request, post } = setup();
+    const missing = await request("/nope");
     await expectEmpty(missing, 404);
     expect(missing.headers.get("X-Content-Type-Options")).toBe("nosniff");
     expect((await post(JSON.stringify(batch))).headers.get("X-Content-Type-Options")).toBe("nosniff");
+    expect((await request("/healthz", { headers: { Host: "evil.io" } })).headers.get("X-Content-Type-Options")).toBe("nosniff");
   });
 
   it("answers an unexpected failure with an empty 500", async () => {
@@ -200,8 +198,11 @@ describe("other routes", () => {
     vi.spyOn(buffer, "add").mockImplementation(() => {
       throw new Error("boom");
     });
-    const app = createApp({ resolveKey: async () => project, buffer });
-    const res = await app.request("/v1/e", { method: "POST", body: JSON.stringify(batch), headers: { "Content-Type": "text/plain", Origin: ORIGIN } });
+    const res = await createApp({ buffer }).request("/v1/e", {
+      method: "POST",
+      body: JSON.stringify(batch),
+      headers: { Host: HOST, "Content-Type": "text/plain", Origin: ORIGIN },
+    });
     await expectEmpty(res, 500);
   });
 });

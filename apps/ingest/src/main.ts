@@ -2,7 +2,7 @@ import { parseEnv } from "./env.js";
 import { start } from "./start.js";
 
 const server = await start(parseEnv(process.env));
-console.log(`Ingest ${server.port} portunda çalışıyor.`);
+console.log(`Vitalscope toplayıcısı http://127.0.0.1:${server.port} adresinde çalışıyor.`);
 
 let stopping = false;
 async function stop() {

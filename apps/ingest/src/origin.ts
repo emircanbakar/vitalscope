@@ -1,19 +1,24 @@
+const LOCAL_HOST_HEADER = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i;
+
 /**
- * `Origin` başlığı projenin izinli alan adlarından biri mi? Liste elemanları alan adıdır:
- * `ecbakar.com` tam eşleşir, `*.ecbakar.com` sadece alt alan adlarıyla eşleşir (`ecbakar.com` ile değil).
- * Başlık yoksa veya `null` ise reddedilir. Not: Origin tarayıcı dışından sahte gönderilebilir; bu kontrol
- * başka sitelerin yanlışlıkla veri göndermesini engeller, kötü niyetli kullanıcıyı değil.
+ * İstek bu makinedeki bir sayfadan mı geliyor? Bilgisayarda açık herhangi bir site toplayıcıya istek atmayı
+ * deneyebilir; başlık yoksa veya `null` ise de reddedilir. Not: Origin tarayıcı dışından sahte gönderilebilir,
+ * ama toplayıcıya sadece bu makineden ulaşılır.
  */
-export function isAllowedOrigin(origin: string | undefined, allowed: readonly string[]): boolean {
+export function isAllowedOrigin(origin: string | undefined): boolean {
   if (!origin) return false;
-  let hostname: string;
+  let url: URL;
   try {
-    hostname = new URL(origin).hostname.toLowerCase();
+    url = new URL(origin);
   } catch {
     return false;
   }
-  return allowed.some((entry) => {
-    const pattern = entry.toLowerCase();
-    return pattern.startsWith("*.") ? hostname.endsWith(pattern.slice(1)) : hostname === pattern;
-  });
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  const hostname = url.hostname.toLowerCase();
+  return LOCAL_HOST_HEADER.test(hostname) || hostname.endsWith(".localhost");
+}
+
+/** DNS rebinding'e karşı: kötü niyetli bir alan adı 127.0.0.1'e çözülse de `Host` başlığı o alan adı kalır. */
+export function isLocalHost(host: string | undefined): boolean {
+  return host !== undefined && LOCAL_HOST_HEADER.test(host);
 }
