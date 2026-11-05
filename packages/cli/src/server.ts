@@ -19,9 +19,10 @@ export function startServer(
   buffer: EventBuffer,
   { port, hostname, drainTimeoutMs = DEFAULT_DRAIN_TIMEOUT_MS }: { port: number; hostname?: string; drainTimeoutMs?: number },
 ): Promise<RunningServer> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const options = hostname ? { fetch: app.fetch, port, hostname } : { fetch: app.fetch, port };
     const server = serve(options, (info: AddressInfo) => {
+      server.off("error", reject);
       let closing: Promise<number> | undefined;
       resolve({
         port: info.port,
@@ -39,5 +40,7 @@ export function startServer(
           }).then(() => buffer.drain(drainTimeoutMs))),
       });
     });
+    // Port doluysa süreç yakalanmamış hatayla düşmesin; çağıran açıklamalı mesaj yazar.
+    server.once("error", reject);
   });
 }

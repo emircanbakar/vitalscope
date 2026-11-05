@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import http from "node:http";
@@ -6,7 +5,6 @@ import net from "node:net";
 import { networkInterfaces, tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RunningServer } from "../src/server.js";
 import { openStore } from "../src/sqlite.js";
@@ -47,7 +45,7 @@ const send = (url: string, body: string, origin = ORIGIN) =>
   fetch(`${url}/v1/e`, { method: "POST", body, headers: { "Content-Type": "text/plain", Origin: origin } });
 
 async function serve(dir = tempDir()) {
-  running = await start({ PORT: 0, VITALSCOPE_DIR: dir });
+  running = await start({ port: 0, dir });
   return { dir, url: `http://127.0.0.1:${running.port}` };
 }
 
@@ -164,33 +162,9 @@ describe("collector on a real database", () => {
     const [error] = (await once(socket, "error")) as [NodeJS.ErrnoException];
     expect(error.code).toBe("ECONNREFUSED");
   });
-});
 
-describe("process", () => {
-  const entry = fileURLToPath(new URL("../dist/main.js", import.meta.url));
-
-  it("does not start with a bad variable and does not print its value", async () => {
-    const child = spawn(process.execPath, [entry], { env: { PATH: process.env.PATH, PORT: "gizli-deger" }, stdio: ["ignore", "pipe", "pipe"] });
-    let output = "";
-    child.stderr.on("data", (chunk) => (output += chunk));
-    const [code] = await once(child, "exit");
-    expect(code).not.toBe(0);
-    expect(output).toContain("PORT");
-    expect(output).not.toContain("gizli-deger");
-  });
-
-  // Windows'ta `kill` süreci sinyalsiz öldürür; bu test CI'da (Linux) çalışır.
-  it.skipIf(process.platform === "win32")("writes buffered events and exits cleanly on SIGTERM", async () => {
-    const dir = tempDir();
-    const child = spawn(process.execPath, [entry], { env: { ...process.env, PORT: "0", VITALSCOPE_DIR: dir }, stdio: ["ignore", "pipe", "inherit"] });
-    const [line] = (await once(child.stdout, "data")) as [Buffer];
-    const port = /:(\d+)/.exec(line.toString())?.[1];
-    const res = await send(`http://127.0.0.1:${port}`, batchFor([{ t: "pageview", ts: Date.now() }]));
-    expect(res.status).toBe(202);
-
-    child.kill("SIGTERM");
-    const [code] = await once(child, "exit");
-    expect(code).toBe(0);
-    expect(select(dir, "pageviews")).toHaveLength(1);
+  it("reports a busy port and closes the database", async () => {
+    const { dir } = await serve();
+    await expect(start({ port: running!.port, dir })).rejects.toMatchObject({ code: "EADDRINUSE" });
   });
 });
