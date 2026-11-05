@@ -12,6 +12,9 @@ const ERROR_WIDTH = 80;
 /** Renksiz çıktıda da (dosyaya yönlendirme, `NO_COLOR`) okunabilsin diye değerin yanında işaret. */
 const MARKS: Record<Rating, string> = { good: "", "needs-improvement": " ~", poor: " !" };
 const COLORS = { good: "green", "needs-improvement": "yellow", poor: "red" } as const;
+/** Geliştirme sunucusu ile build'in sayıları tek p75'te karışmasın diye her ortamın kendi tablosu var. */
+const ENVIRONMENTS = ["production", "preview", "development"] as const;
+const DEV_WARNING = "Development servers run unminified code with HMR, so these numbers differ from a production build.";
 
 /**
  * Yollar ve hata mesajları tarayıcıdan gelir, sayfadaki herhangi bir betik belirleyebilir.
@@ -36,17 +39,17 @@ function more(total: number, shown: number, label: string) {
   return total > shown ? [`…and ${total - shown} more ${label}`] : [];
 }
 
-function pagesTable(db: DatabaseSync) {
+function pagesTable(db: DatabaseSync, env: string) {
   const views = new Map(
     db
-      .prepare("SELECT COALESCE(route, path) AS page, SUM(1.0 / sample_rate) AS views FROM pageviews GROUP BY page")
-      .all()
+      .prepare("SELECT COALESCE(route, path) AS page, SUM(1.0 / sample_rate) AS views FROM pageviews WHERE env = ? GROUP BY page")
+      .all(env)
       .map((row) => [row.page as string, Math.round(row.views as number)]),
   );
   // Aynı metrik örneği değeri büyüdükçe yeniden gönderilebilir; sadece son değeri sayılır.
   const samples = db
-    .prepare("SELECT COALESCE(route, path) AS page, name, value FROM vitals WHERE rowid IN (SELECT MAX(rowid) FROM vitals GROUP BY session_id, metric_id)")
-    .all() as { page: string; name: MetricName; value: number }[];
+    .prepare("SELECT COALESCE(route, path) AS page, name, value FROM vitals WHERE env = ? AND rowid IN (SELECT MAX(rowid) FROM vitals GROUP BY session_id, metric_id)")
+    .all(env) as { page: string; name: MetricName; value: number }[];
 
   const byPage = new Map<string, Partial<Record<MetricName, number[]>>>();
   for (const { page, name, value } of samples) {
@@ -107,14 +110,15 @@ export function buildReport(dir: string): string {
 
   const db = new DatabaseSync(file, { readOnly: true });
   try {
-    const pages = pagesTable(db);
+    const sections = ENVIRONMENTS.flatMap((env) => {
+      const pages = pagesTable(db, env);
+      if (pages.length === 0) return [];
+      return [[`p75 by page, ${env}  (~ needs improvement, ! poor)`, ...(env === "development" ? [DEV_WARNING] : []), "", ...pages]];
+    });
     const errors = errorsList(db);
-    if (pages.length === 0 && errors.length === 0) return empty;
-    return [
-      ...(pages.length > 0 ? ["p75 by page  (~ needs improvement, ! poor)", "", ...pages] : []),
-      ...(pages.length > 0 && errors.length > 0 ? [""] : []),
-      ...(errors.length > 0 ? ["Errors", "", ...errors] : []),
-    ].join("\n");
+    if (errors.length > 0) sections.push(["Errors", "", ...errors]);
+    if (sections.length === 0) return empty;
+    return sections.map((section) => section.join("\n")).join("\n\n");
   } finally {
     db.close();
   }

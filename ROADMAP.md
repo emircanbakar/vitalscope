@@ -39,7 +39,9 @@ Kurallar: her adım ayrı branch ve PR, CI yeşil olmadan merge yok, PR'lar squa
 | #32 | CLI | `apps/ingest` → `packages/cli` (`@vitalscope/cli`, henüz yayınlanmıyor). `vitalscope dev`: toplayıcı, dolu port için açıklamalı hata, Ctrl+C'de tamponu boşaltıp kapanma (Windows'ta terminalde denendi). `vitalscope report`: sayfa bazlı p75 (route şablonuyla gruplanır, tekrar gönderilen metriğin son değeri sayılır), renkten bağımsız `~` / `!` işaretleri, gruplanmış hatalar; tarayıcıdan gelen metinlerde kontrol karakterleri temizlenir. Node 24.15 altında anlaşılır hata |
 | #33 | SDK yerel kurulum | `init()` ayarsız çalışır: `key` ve `endpoint` isteğe bağlı, varsayılan adres `http://localhost:8787/v1/e`. Yerel olmayan sayfada (`localhost`, `127.0.0.1`, `[::1]`, `*.localhost` dışı) SDK hiçbir şey yapmaz; e2e testi 3 tarayıcıda doğrular. Script etiketi ayarsız başlar, `data-manual` ile `init()` bekler. README kurulum belgesi: geliştirme kontrolü arkasında dinamik import. Vite ve Next.js'te gerçek uygulamayla denendi: paket kurulu değilken build geçer, çıktıda SDK olmaz, dev modunda veri rapora ulaşır |
 
-Durum: 366 birim testi (protokol 53, SDK 168, CLI 145; `SIGTERM` testi Windows'ta atlanır) + 45 e2e testi (15 senaryo × 3 tarayıcı; 38 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut (`size-limit`, minify + gzip, bağımlılıklar dahil) ve bütçe: çekirdek 4,82 / 5 kB, attribution 5,66 / 5,8 kB, `/react` 4,73 / 4,9 kB, `/next` 4,96 / 5,15 kB, IIFE 4,9 / 5,1 kB.
+| #34 | Ölçüm doğruluğu | `environment` verilmezse bundler'ın `NODE_ENV` değerinden anlaşılır, bundler yoksa `development` (önceden hep `production`). `vitalscope report` her ortamı ayrı tabloda gösterir, geliştirme sayılarını production ile karıştırmaz ve uyarı yazar. README production build ölçümünü anlatır: Vite'ta `--mode vitalscope`, Next.js'te ölçüm süresince kontrolü kaldırma. Vite ve Next.js'te gerçek uygulamayla denendi |
+
+Durum: 373 birim testi (protokol 53, SDK 173, CLI 147; `SIGTERM` testi Windows'ta atlanır) + 45 e2e testi (15 senaryo × 3 tarayıcı; 38 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut (`size-limit`, minify + gzip, bağımlılıklar dahil) ve bütçe: çekirdek 4,83 / 5 kB, attribution 5,67 / 5,8 kB, `/react` 4,74 / 4,9 kB, `/next` 4,98 / 5,15 kB, IIFE 4,91 / 5,1 kB.
 
 **Boyut bütçesi kararı (#16):** dokümandaki çekirdek < 3 KB ve attribution < 5 KB tutmuyor. Çekirdeği 3 KB'a indirmek için yaklaşık üçte birini (hata yakalama, SPA takibi gibi) ayrı giriş noktalarına taşımak gerekirdi. Bunun yerine bütçeler ölçülen boyutun ≈ %5 üstüne kondu; CI büyümeyi engeller. Not: playground'da attribution sayfası ayrı build edilir; aynı build'de SDK ortak bir parçaya taşınıyor ve `init` sıcak açılışta ≈ 0,2 ms (4× yavaşlatmada) yavaşlıyordu. SDK'yı ayrı bir chunk'a koyan sitelerde de benzer bir fark beklenebilir.
 
@@ -47,10 +49,9 @@ Durum: 366 birim testi (protokol 53, SDK 168, CLI 145; `SIGTERM` testi Windows't
 
 Sırayla:
 
-- [ ] **Ölçüm doğruluğu:** geliştirme sunucusunun sayıları canlıdan farklıdır (sıkıştırılmamış kod, HMR). Olaylar `development` / `production` olarak ayrılır, panel ve rapor uyarır, belge production build üzerinden ölçmeyi anlatır
 - [ ] **Hata gruplama:** hata fingerprint'i, aynı hatanın tek satırda sayılması
 - [ ] **Grafik paketi:** `packages/charts`, SVG + yoğun serilerde Canvas
-- [ ] **Panel:** CLI paketinden sunulan statik sayfa (Vite + React), Next.js ve giriş yok. Genel bakış, metrik detayı, sayfa ve cihaz kırılımları, URL filtre state'i
+- [ ] **Panel:** CLI paketinden sunulan statik sayfa (Vite + React), Next.js ve giriş yok. Genel bakış, metrik detayı, sayfa ve cihaz kırılımları, URL filtre state'i. Ortamlar raporda olduğu gibi ayrı gösterilir, geliştirme sayıları için uyarı olur
 - [ ] **Hatalar ve release'ler:** hata listesi ve detayı, iki release'in karşılaştırılması
 - [ ] **Canlı görünüm:** toplayıcıdan panele SSE; sayfayı yenileyince ölçüm hemen görünür
 - [ ] **Kalite:** seed + sorgu süresi testleri, E2E, XSS testi (hata mesajları panelde gösterilir), axe, büyük dosyada davranış

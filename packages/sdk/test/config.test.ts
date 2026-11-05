@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { PUBLIC_KEY_PATTERN } from "@vitalscope/protocol";
 import { isLocalPage, resolveConfig } from "../src/config.js";
 
@@ -11,7 +11,7 @@ describe("resolveConfig", () => {
       key,
       endpoint,
       release: undefined,
-      environment: "production",
+      environment: "development",
       sampleRate: 1,
       captureErrors: true,
       trackSpa: true,
@@ -19,6 +19,35 @@ describe("resolveConfig", () => {
       keepQuery: [],
       respectDoNotTrack: false,
       debug: false,
+    });
+  });
+
+  describe("environment", () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+      vi.unstubAllGlobals();
+    });
+
+    it("is production when the bundler built for production", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      expect(resolveConfig()?.environment).toBe("production");
+    });
+
+    it("is development when the bundler built for development", () => {
+      vi.stubEnv("NODE_ENV", "development");
+      expect(resolveConfig()?.environment).toBe("development");
+    });
+
+    it("is development without a bundler, where process does not exist", () => {
+      vi.stubGlobal("process", undefined);
+      const environment = resolveConfig()?.environment;
+      vi.unstubAllGlobals();
+      expect(environment).toBe("development");
+    });
+
+    it("prefers the explicit value", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      expect(resolveConfig({ environment: "preview" })?.environment).toBe("preview");
     });
   });
 

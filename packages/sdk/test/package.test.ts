@@ -41,6 +41,14 @@ describe("dist", () => {
     },
   );
 
+  it("leaves NODE_ENV for the site's bundler to replace", () => {
+    const code = readdirSync(dist)
+      .filter((f) => f.endsWith(".mjs"))
+      .map((f) => readFileSync(new URL(f, dist), "utf8"))
+      .join("");
+    expect(code).toContain("process.env.NODE_ENV");
+  });
+
   it("react and next entries import only their peers and are client components", () => {
     expect(importsOf("react.mjs")).toEqual(["react"]);
     expect(importsOf("next.mjs").sort()).toEqual(["next/navigation", "react"]);

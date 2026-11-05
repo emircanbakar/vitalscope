@@ -40,7 +40,7 @@ describe("init", () => {
     const [batch] = sent();
     expect(batch?.k).toBe(config.key);
     expect(batch?.sdk).toBe("0.0.0-test");
-    expect(batch?.ctx).toMatchObject({ path: "/", release: "9f2c1ab", env: "production", device: "desktop" });
+    expect(batch?.ctx).toMatchObject({ path: "/", release: "9f2c1ab", env: "development", device: "desktop" });
     expect(batch?.ctx.sid).toMatch(/^[0-9a-f]{16}$/);
     expect(batch?.e).toEqual([{ t: "pageview", ts: expect.any(Number) }]);
   });

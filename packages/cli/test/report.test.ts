@@ -120,4 +120,26 @@ describe("buildReport", () => {
     expect(report).toContain("…and 5 more errors");
     expect(Math.max(...report.split("\n").map((line) => line.length))).toBeLessThan(120);
   });
+
+  it("never mixes environments in one p75", async () => {
+    const report = await reportOf([
+      pageview({ env: "development" }),
+      vital("LCP", 4000, { env: "development" }),
+      pageview({ env: "production" }),
+      pageview({ env: "production" }),
+      vital("LCP", 500, { env: "production" }),
+    ]);
+    const [production, development] = report.split("p75 by page, development");
+    expect(production).toContain("500 ms");
+    expect(production).not.toContain("4.00 s");
+    expect(development).toContain("4.00 s");
+    expect(development).not.toContain("500 ms");
+    expect(cells(production!, "/")?.[1]).toBe("2");
+    expect(cells(development!, "/")?.[1]).toBe("1");
+  });
+
+  it("warns about development numbers only when there are any", async () => {
+    expect(await reportOf([vital("LCP", 500, { env: "development" })])).toContain("differ from a production build");
+    expect(await reportOf([vital("LCP", 500, { env: "production" })])).not.toContain("differ from a production build");
+  });
 });
