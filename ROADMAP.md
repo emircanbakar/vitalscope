@@ -1,14 +1,16 @@
 # Yol haritası ve durum
 
-Son güncelleme: 4 Kasım 2026 (main: `0518750`)
+Son güncelleme: 5 Kasım 2026 (main: `a8b610e`)
 
-Vitalscope, sitelerin gerçek kullanıcı performansını (Core Web Vitals) ve JavaScript hatalarını izleyen, açık kaynak ve self-host edilebilir bir platformdur. Üç parçadan oluşur:
+Vitalscope, geliştiricinin kendi bilgisayarında çalışan, `devDependencies`'e kurulan açık kaynak bir performans aracıdır. Core Web Vitals ölçümlerini ve JavaScript hatalarını toplar, sonuçları yerel bir panelde ve terminalde gösterir. Sunucu, hesap ve Docker gerektirmez. Üç parçadan oluşur:
 
-- **SDK (`@vitalscope/sdk`):** siteye eklenen, sıfır bağımlılıklı tarayıcı kütüphanesi. Metrikleri, hataları ve sayfa görüntülemelerini toplar.
-- **Ingest servisi (Hono):** olayları doğrular, zenginleştirir, ClickHouse'a toplu yazar.
-- **Dashboard (Next.js):** GitHub ile giriş, proje ve anahtar yönetimi, metrik ve hata analizi, release karşılaştırma, canlı görünüm.
+- **SDK (`@vitalscope/sdk`):** uygulamaya eklenen, sıfır bağımlılıklı tarayıcı kütüphanesi. Metrikleri, hataları ve sayfa görüntülemelerini toplar.
+- **Yerel toplayıcı (Hono):** olayları doğrular ve projedeki yerel bir dosyaya yazar. Sadece `127.0.0.1` üzerinde çalışır.
+- **CLI ve panel (`@vitalscope/cli`):** `vitalscope dev` toplayıcıyı ve paneli başlatır, `vitalscope report` sonuçları terminalde gösterir.
 
-Veri katmanı: ClickHouse (olaylar), Postgres + Drizzle (kullanıcı, proje, anahtar), Redis (önbellek, rate limit, canlı akış).
+Veri katmanı: proje klasöründe tek SQLite dosyası (`.vitalscope/`).
+
+**Yön kararı (5 Kasım 2026):** Sunuculu gerçek kullanıcı izleme platformu yerine yerel geliştirici aracına geçildi. Kazanç: masraf yok, tek komutla kurulum, çok daha küçük kapsam. Bedel: sadece geliştiricinin kendi tarayıcısından gelen veri görünür; gerçek kullanıcıların cihazları, ülkeleri ve karşılaştıkları hatalar görünmez. SDK'nın `endpoint` ayarı kalır, bu yüzden sunucu seçeneği ileride yeniden eklenebilir. Aşağıdaki "Tamamlananlar" tablosu geçmiş kaydıdır; #28 ve #29'daki ClickHouse ve Postgres kısmı "Yerel toplayıcı" adımında kaldırılır.
 
 Kurallar: her adım ayrı branch ve PR, CI yeşil olmadan merge yok, PR'lar squash ile birleşir. Commit'ler Conventional Commits, scope zorunlu (`sdk`, `protocol`, `ingest`, `dashboard`, `charts`, `infra`, `repo`, `deps`), SSH ile imzalı.
 
@@ -39,22 +41,31 @@ Durum: 295 birim testi (protokol 53, SDK 149, ingest 93) + 17 entegrasyon testi 
 
 ## Sıradaki adımlar
 
-### SDK
+Sırayla:
 
-- [ ] **Dogfooding:** enflasyon uygulaması ve ecbakar.com'a kurulum
-
-### Platform
-
-- [ ] **Ingest sertleştirme:** rate limit, geo (DB-IP Lite) ve UA zenginleştirme, hata fingerprint'i, backpressure, `/metrics`; protokoldeki temizleme kuralları sunucuda ikinci kez; ClickHouse'un veri nedeniyle reddettiği partinin (kesintiden ayırt edilip) sonsuza dek yeniden denenmemesi
-- [ ] **Dashboard iskeleti:** Better Auth + GitHub, proje CRUD, anahtar yönetimi, `scoped-query` + kiracı izolasyonu testleri
+- [ ] **Yerel toplayıcı:** `EventSink` için SQLite (`node:sqlite`, Node 24'te yerleşik; yerel bağımlılık derlemesi yok); `ResolveKey` yerine sabit yerel proje; `.vitalscope/` klasörü. Sadece `127.0.0.1`'e bağlanır, sadece yerel `Origin` kabul edilir ve `Host` başlığı kontrol edilir (ziyaret edilen başka bir site veri gönderememeli, DNS rebinding işe yaramamalı). `apps/ingest` içindeki ClickHouse ve Postgres kodu, `packages/db`, `infra/` ve CI'daki `integration` işi kaldırılır; entegrasyon testleri SQLite ile yeniden yazılır
+- [ ] **CLI:** `@vitalscope/cli`, komut adı `vitalscope`. `vitalscope dev` toplayıcıyı başlatır, `vitalscope report` sayfa bazlı p75 değerlerini ve hataları terminalde tablo olarak gösterir
+- [ ] **SDK yerel kurulum:** anahtar kuralı (`pk_` + 24 karakter) yerel kullanımda nasıl sadeleşecek; SDK'nın canlı siteye yanlışlıkla çıkmaması (`devDependencies` paketi `--omit=dev` kurulumda build'i kırar, bundler'a girerse canlı kullanıcıda da çalışır); yerel olmayan adreste sessizce kapanma. Kurulum belgesi: React, Next.js, düz `<script>`
+- [ ] **Ölçüm doğruluğu:** geliştirme sunucusunun sayıları canlıdan farklıdır (sıkıştırılmamış kod, HMR). Olaylar `development` / `production` olarak ayrılır, panel ve rapor uyarır, belge production build üzerinden ölçmeyi anlatır
+- [ ] **Hata gruplama:** hata fingerprint'i, aynı hatanın tek satırda sayılması
 - [ ] **Grafik paketi:** `packages/charts`, SVG + yoğun serilerde Canvas
-- [ ] **Vitals ekranları:** genel bakış, metrik detayı, kırılımlar, URL filtre state'i
-- [ ] **Hatalar ve release'ler:** hata listesi / detayı, materialized view, release karşılaştırma
-- [ ] **Canlı görünüm:** Redis pub/sub → SSE
-- [ ] **Kalite:** seed + sorgu bütçe testleri, E2E, XSS testi, axe, Lighthouse
-- [ ] **Yük testi:** k6 senaryoları, sonuç grafikleri (hedef: 2.000 olay/sn, p99 < 50 ms)
-- [ ] **Paketleme ve deploy:** üretim Dockerfile'ları, GHCR, imaj imzalama, compose + Caddy, deploy workflow'u, yedekleme
-- [ ] **Demo ve case study:** `/demo` sayfası, ecbakar.com yazısı
+- [ ] **Panel:** CLI paketinden sunulan statik sayfa (Vite + React), Next.js ve giriş yok. Genel bakış, metrik detayı, sayfa ve cihaz kırılımları, URL filtre state'i
+- [ ] **Hatalar ve release'ler:** hata listesi ve detayı, iki release'in karşılaştırılması
+- [ ] **Canlı görünüm:** toplayıcıdan panele SSE; sayfayı yenileyince ölçüm hemen görünür
+- [ ] **Kalite:** seed + sorgu süresi testleri, E2E, XSS testi (hata mesajları panelde gösterilir), axe, büyük dosyada davranış
+- [ ] **Yayın:** CLI paketi için npm hazırlığı, kök README, tanıtım görselleri
+- [ ] **Dogfooding ve case study:** enflasyon uygulaması ve ecbakar.com'da yerel kullanım, ecbakar.com yazısı
+
+### Karar bekleyen fikirler
+
+Yerel ölçümü DevTools ve Lighthouse da yapıyor. Aracı bunlardan ayırabilecek fikirler, kapsama henüz alınmadı:
+
+- [ ] Sayfa bazlı ölçüm geçmişi ve commit'ler arası karşılaştırma
+- [ ] `vitalscope check`: limit aşılırsa CI'da build'i durdurma (CI'da sayfayı açacak bir tarayıcı gerektirir)
+
+### Kapsamdan çıkanlar
+
+Yön kararıyla çıktı, sunucu seçeneği yeniden eklenirse geri gelir: ClickHouse, Postgres, Redis, Docker, Better Auth ve GitHub ile giriş, proje ve anahtar yönetimi, kiracı izolasyonu, rate limit, geo ve UA zenginleştirme, `/metrics`, sunucuda ikinci gizlilik temizliği, k6 yük testi, üretim imajları, GHCR, Caddy, deploy workflow'u, yedekleme, herkese açık `/demo` sayfası.
 
 ## Tarayıcı farkları ve atlanan testler
 
@@ -91,7 +102,7 @@ PR #11'deki e2e senaryolarından çıkanlar ve PR #13'teki çözümleri. Hedef: 
 - [x] `SECURITY.md`: bildirim adresi ecbakar.dev@gmail.com, ilk yanıt 72 saat; npm paketlerinde de var. Repo public olunca GitHub private vulnerability reporting eklenebilir
 - [x] CI'da `pnpm audit --prod` (boş `dependencies` ve `npm pack` dosya listesi testlerde)
 - [x] Kapsam eşikleri (satır): SDK ≥ %95 (şu an %99,55), `transport.ts` ve `privacy.ts` %100. `iife.ts` build çıktısı üzerinden test edilir, ölçüme girmez
-- [ ] Kök README ve tam dokümantasyon (paket README'leri #17'de kısa haliyle var; self-host adımları, referans kütüphaneyle uyum tablosu, tarayıcı desteği)
+- [ ] Kök README ve tam dokümantasyon (paket README'leri #17'de kısa haliyle var; yerel kurulum adımları, referans kütüphaneyle uyum tablosu, tarayıcı desteği)
 
 ## Elle yapılacaklar
 
@@ -101,10 +112,9 @@ PR #11'deki e2e senaryolarından çıkanlar ve PR #13'teki çözümleri. Hedef: 
 - [x] npm: iki pakette de "Require two-factor authentication and disallow tokens" (senin onayınla; dışarıdan okunamadığı için doğrulanmadı)
 - [x] GitHub: "Allow GitHub Actions to create and approve pull requests" (3 Kasım)
 - [x] GitHub: `npm` ortamında dağıtım dalı sadece `main`. Repo private olduğu için ortam onaylayıcısı kurulamıyor ve npm provenance üretmiyor; yayının kontrol noktası sürüm PR'ının merge'ü
-- [ ] İki GitHub OAuth uygulaması (geliştirme ve canlı)
-- [ ] Alan adı ve VPS (ClickHouse için en az 8 GB RAM)
+- [ ] npm: `@vitalscope/cli` için yer tutucu ve trusted publisher (Yayın adımından önce; ad 5 Kasım'da boştu)
 
 ## Açık sorular
 
-- Better Auth mı Auth.js mi (dashboard iskeletinden önce)
+- `node:sqlite`'ın kararlılık durumu ve desteklenecek en düşük Node sürümü (Yerel toplayıcı adımında; 24.22.1'de çalıştığı denendi)
 - Soft navigation (SPA içi LCP): tarayıcı API'si olgunlaşınca v2
