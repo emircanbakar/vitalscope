@@ -25,6 +25,30 @@ With no options, `init()` sends to `http://localhost:8787/v1/e`. If the collecto
 - **On real domains the SDK does nothing.** It starts only on `localhost`, `127.0.0.1`, `[::1]` and `*.localhost`, so it cannot collect data from real users even if it reaches a production bundle.
 - **Keep it out of the bundle.** A dynamic import behind a development check, as above, adds nothing to the production build. A plain top-level `import` ships the SDK to your users, where it stays off but still costs about 5 kB, and it breaks builds that install with `--omit=dev`.
 
+## Measuring a production build
+
+Development servers run unminified code with HMR, so their numbers differ from what a production build delivers. Treat them as a way to spot changes, and measure a production build before trusting a value.
+
+The SDK labels each measurement by reading `NODE_ENV` from your bundler, and `vitalscope report` shows production and development numbers in separate tables. Without a bundler (the script tag) the label is `development`; set it with `init({ environment: "production" })` or `data-environment="production"`.
+
+With Vite, allow a dedicated mode in the check:
+
+```ts
+if (import.meta.env.DEV || import.meta.env.MODE === "vitalscope") {
+  void import("@vitalscope/sdk").then(({ init }) => init());
+}
+```
+
+```bash
+vite build --mode vitalscope && vite preview
+```
+
+A normal `vite build` still leaves the SDK out. Build again before you deploy.
+
+With Next.js, remove the `NODE_ENV` check for the measurement, run `next build && next start`, then put the check back. Next.js has no equivalent of a build mode, and a `NEXT_PUBLIC_*` flag does not work here: while it is unset, the import stays in the build and breaks installs with `--omit=dev`.
+
+These numbers still come from your machine and your network, not from real users.
+
 ## Entry points
 
 | Entry | What it adds |

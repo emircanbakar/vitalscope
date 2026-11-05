@@ -7,6 +7,7 @@ export interface Config {
   /** Toplayıcı URL'i; `https:` olmalı (localhost hariç). Varsayılan `vitalscope dev` adresi. */
   endpoint?: string;
   release?: string;
+  /** Verilmezse bundler'ın `NODE_ENV` değerinden anlaşılır; bundler yoksa (script etiketi) `development`. */
   environment?: "production" | "preview" | "development";
   /** 0–1 arası; karar sayfa yüklemesi başına bir kez verilir. Varsayılan 1. */
   sampleRate?: number;
@@ -50,6 +51,15 @@ const LOCAL_ENDPOINT = "http://localhost:8787/v1/e";
  */
 export function isLocalPage(hostname: string = location.hostname): boolean {
   return LOCAL_HOSTS.includes(hostname) || hostname.endsWith(".localhost");
+}
+
+/** Bundler'lar `process.env.NODE_ENV` ifadesini derlerken sabitle değiştirir; bundler yoksa `process` tanımsızdır. */
+function detectEnvironment(): "production" | "development" {
+  try {
+    return process.env.NODE_ENV === "production" ? "production" : "development";
+  } catch {
+    return "development";
+  }
 }
 
 function isAllowedEndpoint(value: string): boolean {
@@ -103,7 +113,7 @@ export function resolveConfig(input: unknown = {}): ResolvedConfig | null {
     key,
     endpoint,
     release,
-    environment: (environment as ResolvedConfig["environment"] | undefined) ?? "production",
+    environment: (environment as ResolvedConfig["environment"] | undefined) ?? detectEnvironment(),
     sampleRate: sampleRate ?? 1,
     captureErrors: captureErrors !== false,
     trackSpa: trackSpa !== false,
