@@ -45,6 +45,26 @@ describe("init", () => {
     expect(batch?.e).toEqual([{ t: "pageview", ts: expect.any(Number) }]);
   });
 
+  it("starts without any configuration and sends to the local collector", () => {
+    sdk.init();
+    sdk.flush();
+    expect(beacon.mock.calls[0]?.[0]).toBe("http://localhost:8787/v1/e");
+    expect(sentEvents()).toEqual([{ t: "pageview", ts: expect.any(Number) }]);
+  });
+
+  it("does nothing at all on a page that is not local, even in dev mode", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const listen = vi.spyOn(globalThis, "addEventListener");
+    vi.stubGlobal("location", new URL("https://ecbakar.com/urun"));
+    sdk.init({ ...config, environment: "development", debug: true });
+    sdk.track("x");
+    sdk.captureError(new Error("x"));
+    sdk.flush();
+    expect(beacon).not.toHaveBeenCalled();
+    expect(listen).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it("does not start with an invalid config and warns only in dev mode", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     sdk.init({ key: "nope", endpoint: config.endpoint });

@@ -32,7 +32,7 @@ export function toRouteTemplate(pathname: string, params: Params | null): string
 }
 
 export interface VitalscopeProviderProps {
-  config: Config;
+  config?: Config | undefined;
   children?: ReactNode;
 }
 

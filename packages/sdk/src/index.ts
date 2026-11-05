@@ -8,7 +8,7 @@ import {
   type MetricName,
   type VitalEvent,
 } from "@vitalscope/protocol";
-import { resolveConfig, type Config, type ResolvedConfig } from "./config.js";
+import { isLocalPage, resolveConfig, type Config, type ResolvedConfig } from "./config.js";
 import { buildContext, createSessionId, getPath, markRestored, type PageUrl } from "./context.js";
 import { createErrorCollector } from "./errors.js";
 import { isPrerendering } from "./navigation-timing.js";
@@ -140,7 +140,8 @@ function prefersNoTracking(): boolean {
   return nav.globalPrivacyControl === true || nav.doNotTrack === "1";
 }
 
-export const init = safe((config: Config): void => {
+export const init = safe((config?: Config): void => {
+  if (!isLocalPage()) return;
   const resolved = resolveConfig(config);
   const devMode = resolved?.debug === true || (config as Partial<Config> | undefined)?.environment === "development";
 
