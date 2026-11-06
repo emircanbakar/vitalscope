@@ -349,3 +349,23 @@ button {
 .change-better {
   color: var(--good-text);
 }
+
+.live {
+  margin-left: auto;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.live-live::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--good-text);
+}
+
+.live-offline {
+  color: var(--poor-text);
+}

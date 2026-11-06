@@ -3,6 +3,7 @@ import { extname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { METRIC_NAMES, type MetricName } from "@vitalscope/protocol";
 import type { Context, Hono } from "hono";
+import type { Live } from "./live.js";
 import { ENVIRONMENTS, getComparison, getErrorDetail, getErrorList, getMetricDetail, getOptions, getOverview, getReleases, type Environment, type Filters } from "./queries.js";
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -48,7 +49,7 @@ function parseFilters(c: Context, now: number): Filters | null {
   };
 }
 
-export function addPanelRoutes(app: Hono, { db, assets, now }: { db: DatabaseSync; assets: PanelAssets; now: () => number }) {
+export function addPanelRoutes(app: Hono, { db, assets, live, now }: { db: DatabaseSync; assets: PanelAssets; live: Live; now: () => number }) {
   // Ölçümler sayfa adresleri ve hata izleri içerir. CORS başlığı yok; başka sitelere yanıt hiç verilmez.
   app.use("/api/*", async (c, next) => {
     const site = c.req.header("Sec-Fetch-Site");
@@ -56,6 +57,8 @@ export function addPanelRoutes(app: Hono, { db, assets, now }: { db: DatabaseSyn
     await next();
     c.res.headers.set("Cache-Control", "no-store");
   });
+
+  app.get("/api/live", () => live.stream());
 
   app.get("/api/options", (c) => c.json(getOptions(db)));
 

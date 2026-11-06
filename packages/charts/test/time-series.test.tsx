@@ -119,6 +119,16 @@ describe("TimeSeriesChart", () => {
     expect(query(".vs-tooltip")).toBeNull();
   });
 
+  it("drops the selected point when refreshed data no longer has it", () => {
+    render(<TimeSeriesChart title="LCP" x={x} series={[p75]} formatValue={(value) => value.toFixed(0)} />);
+    focus(plot());
+    expect(query(".vs-tooltip")).not.toBeNull();
+    render(<TimeSeriesChart title="LCP" x={x.slice(0, 1)} series={[{ name: "p75", values: p75.values.slice(0, 1) }]} formatValue={(value) => value.toFixed(0)} />);
+    expect(query(".vs-tooltip")).toBeNull();
+    key(plot(), "End");
+    expect(texts(".vs-tooltip-row")).toEqual(["100 p75"]);
+  });
+
   it("builds the table only when it is opened", () => {
     render(<TimeSeriesChart title="LCP" x={x} series={[p75, p95]} formatValue={ms} />);
     expect(query("table")).toBeNull();

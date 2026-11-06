@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/app.js";
 import { baseView, parseView, viewUrl } from "../src/filters.js";
 import { describeChange } from "../src/releases.js";
+import { stubLive } from "./live-stubs.js";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -52,6 +53,7 @@ beforeEach(() => {
     return Promise.resolve(new Response(JSON.stringify(responses[path])));
   });
   vi.stubGlobal("fetch", fetchMock);
+  stubLive();
   vi.stubGlobal(
     "ResizeObserver",
     class {

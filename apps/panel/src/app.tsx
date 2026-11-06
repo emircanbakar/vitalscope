@@ -8,6 +8,7 @@ import { RANGES, apiQuery, baseView, useView, type Environment, type Range, type
 import { FORMATS, METRIC_TITLES, RATING_LABELS } from "./format.js";
 import { ReleasesView } from "./releases.js";
 import { useData } from "./use-data.js";
+import { LiveVersion, useLive, type LiveStatus } from "./use-live.js";
 
 function Select({ label, value, onChange, children }: { label: string; value: string; onChange: (value: string) => void; children: ReactNode }) {
   return (
@@ -78,7 +79,7 @@ function EmptyState() {
   void import("@vitalscope/sdk").then(({ init }) => init());
 }`}</code>
       </pre>
-      <p>Reload this page to see the results.</p>
+      <p>Results appear here as soon as they arrive.</p>
     </section>
   );
 }
@@ -266,7 +267,27 @@ function MetricView({ name, view, env, navigate }: { name: MetricName; view: Vie
   );
 }
 
+const LIVE_LABELS: Record<LiveStatus, string> = { connecting: "Connecting…", live: "Live", offline: "Not connected, retrying…" };
+
+function LiveIndicator({ status }: { status: LiveStatus }) {
+  return (
+    <p className={`live live-${status}`} role="status">
+      {LIVE_LABELS[status]}
+    </p>
+  );
+}
+
+/** Canlı yenileme bütün `useData` çağrılarına buradan ulaşır. */
 export function App() {
+  const { version, status } = useLive();
+  return (
+    <LiveVersion.Provider value={version}>
+      <Panel status={status} />
+    </LiveVersion.Provider>
+  );
+}
+
+function Panel({ status }: { status: LiveStatus }) {
   const [view, navigate] = useView();
   const { data: options, failed } = useData<Options>("/api/options");
 
@@ -300,6 +321,7 @@ export function App() {
             </ViewLink>
           </nav>
         )}
+        <LiveIndicator status={status} />
       </header>
       <main>
         {failed && <LoadError />}
