@@ -43,7 +43,9 @@ Kurallar: her adım ayrı branch ve PR, CI yeşil olmadan merge yok, PR'lar squa
 
 | #36 | Hata gruplama | `vitalscope report` aynı hatayı tek satırda sayar. Anahtar: tür, sayı ve kimliklerden temizlenmiş mesaj, uygulama kodundaki ilk karenin fonksiyonu ve dosyası. Satır, sütun, sunucu adresi, `?t=` ve build özeti anahtara girmez. Okurken hesaplanır, şema değişmez. Vite'ta 3 tarayıcıda ve kod düzenlenerek denendi |
 
-Durum: 389 birim testi (protokol 53, SDK 173, CLI 163; `SIGTERM` testi Windows'ta atlanır) + 45 e2e testi (15 senaryo × 3 tarayıcı; 38 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut (`size-limit`, minify + gzip, bağımlılıklar dahil) ve bütçe: çekirdek 4,83 / 5 kB, attribution 5,67 / 5,8 kB, `/react` 4,74 / 4,9 kB, `/next` 4,98 / 5,15 kB, IIFE 4,91 / 5,1 kB.
+| #37 | Grafik paketi | `packages/charts` (`@vitalscope/charts`, yayınlanmıyor, panele gömülür; `react` dışında bağımlılık yok, 7,9 kB gzip + CSS): `TimeSeriesChart` (1.000 noktadan sonra çizgiler Canvas'ta, eksen ve etkileşim SVG'de), `Histogram` (eşik ve yüzdelik çizgileri), `RatingBar` (renk + desen + etiket). Her grafikte tek cümlelik özet, klavye gezinmesi, açılır tablo; açık ve koyu tema. Tarayıcıda ekran görüntüleriyle kontrol edildi |
+
+Durum: 444 birim testi (protokol 53, SDK 173, CLI 163, grafik 55; `SIGTERM` testi Windows'ta atlanır) + 45 e2e testi (15 senaryo × 3 tarayıcı; 38 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut (`size-limit`, minify + gzip, bağımlılıklar dahil) ve bütçe: çekirdek 4,83 / 5 kB, attribution 5,67 / 5,8 kB, `/react` 4,74 / 4,9 kB, `/next` 4,98 / 5,15 kB, IIFE 4,91 / 5,1 kB.
 
 **Boyut bütçesi kararı (#16):** dokümandaki çekirdek < 3 KB ve attribution < 5 KB tutmuyor. Çekirdeği 3 KB'a indirmek için yaklaşık üçte birini (hata yakalama, SPA takibi gibi) ayrı giriş noktalarına taşımak gerekirdi. Bunun yerine bütçeler ölçülen boyutun ≈ %5 üstüne kondu; CI büyümeyi engeller. Not: playground'da attribution sayfası ayrı build edilir; aynı build'de SDK ortak bir parçaya taşınıyor ve `init` sıcak açılışta ≈ 0,2 ms (4× yavaşlatmada) yavaşlıyordu. SDK'yı ayrı bir chunk'a koyan sitelerde de benzer bir fark beklenebilir.
 
@@ -51,7 +53,6 @@ Durum: 389 birim testi (protokol 53, SDK 173, CLI 163; `SIGTERM` testi Windows't
 
 Sırayla:
 
-- [ ] **Grafik paketi:** `packages/charts`, SVG + yoğun serilerde Canvas
 - [ ] **Panel:** CLI paketinden sunulan statik sayfa (Vite + React), Next.js ve giriş yok. Genel bakış, metrik detayı, sayfa ve cihaz kırılımları, URL filtre state'i. Ortamlar raporda olduğu gibi ayrı gösterilir, geliştirme sayıları için uyarı olur
 - [ ] **Hatalar ve release'ler:** hata listesi ve detayı, iki release'in karşılaştırılması
 - [ ] **Canlı görünüm:** toplayıcıdan panele SSE; sayfayı yenileyince ölçüm hemen görünür
@@ -119,6 +120,8 @@ PR #11'deki e2e senaryolarından çıkanlar ve PR #13'teki çözümleri. Hedef: 
 - [ ] npm: `@vitalscope/cli` için yer tutucu ve trusted publisher (Yayın adımından önce; ad 5 Kasım'da boştu)
 
 ## Açık sorular
+
+- Canvas katmanı gerekli mi? Doküman "SVG ile 10.000 noktada 180 ms, Canvas ile 6 ms" gibi bir fark öngörüyor, ölçüm bunu doğrulamadı (#37; Intel UHD 770, gerçek pencere, sabit çizgi üzerinde hareket eden çapraz çizgi, kare başına ms). 10.000 noktada ikisi de 16,7 (4× CPU'da da). 50.000 noktada SVG 20,2, Canvas 18,7; 4× CPU'da SVG 22,6, Canvas 18,8. İlk çizimde belirgin bir üstünlük yok. Panel en fazla ≈ 2.000 nokta çizeceği için pratikte fark görünmeyebilir. Karar: doküman gereği 1.000 sınırı kaldı; zayıf bir makinede de fark çıkmazsa katman (≈ 40 satır) kaldırılabilir. Case study'de dokümandaki örnek sayılar kullanılmamalı
 
 - `node:sqlite` kararlı olana kadar izlenmeli (Node 24.15'te release candidate). Karar: en düşük sürüm Node 24.15; sıfır bağımlılık, Node 22 kullanıcılarından daha değerli bulundu. Node dokümanının beta sayfası `DatabaseSync`'i `Database`'in eski adı olarak gösteriyor, yayından önce kontrol edilmeli
 - Soft navigation (SPA içi LCP): tarayıcı API'si olgunlaşınca v2
