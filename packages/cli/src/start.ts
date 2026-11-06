@@ -1,5 +1,7 @@
+import { fileURLToPath } from "node:url";
 import { createApp } from "./app.js";
 import { createEventBuffer } from "./buffer.js";
+import { loadPanelAssets } from "./panel.js";
 import { startServer, type RunningServer } from "./server.js";
 import { openStore } from "./sqlite.js";
 import type { EventSink } from "./types.js";
@@ -24,7 +26,8 @@ export async function start({ port, dir }: { port: number; dir: string }): Promi
   const buffer = createEventBuffer(logFailures(store.sink));
   let server: RunningServer;
   try {
-    server = await startServer(createApp({ buffer }), buffer, { port, hostname: HOSTNAME });
+    const assets = loadPanelAssets(fileURLToPath(new URL("./panel/", import.meta.url)));
+    server = await startServer(createApp({ buffer, panel: { db: store.db, assets } }), buffer, { port, hostname: HOSTNAME });
   } catch (error) {
     store.close();
     throw error;

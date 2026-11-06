@@ -95,6 +95,25 @@ describe("vitalscope", () => {
     expect(stderr).toContain(`Port ${port} is already in use`);
   });
 
+  it("serves the built panel and its data", async () => {
+    const { child, port, output } = await startDev(tempDir());
+    try {
+      expect(output.stdout).toContain(`Panel     http://localhost:${port}/`);
+      const page = await fetch(`http://127.0.0.1:${port}/`);
+      const html = await page.text();
+      expect(page.status).toBe(200);
+      expect(page.headers.get("Content-Security-Policy")).toContain("script-src 'self'");
+      const script = /src="([^"]+\.js)"/.exec(html)?.[1];
+      const code = await fetch(`http://127.0.0.1:${port}${script}`);
+      expect(code.status).toBe(200);
+      expect(code.headers.get("Content-Type")).toContain("javascript");
+      expect(await (await fetch(`http://127.0.0.1:${port}/api/options`)).json()).toEqual({ environments: [], pages: [], devices: [] });
+    } finally {
+      child.kill();
+      await once(child, "exit");
+    }
+  });
+
   it("collects while running and reports at the same time", async () => {
     const dir = tempDir();
     const { child, port, output } = await startDev(dir);

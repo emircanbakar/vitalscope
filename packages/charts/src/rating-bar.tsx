@@ -1,4 +1,4 @@
-import { ChartFrame, Tooltip, useActiveIndex, useWidth, type LegendItem } from "./frame.js";
+import { ChartFrame, Legend, Tooltip, useActiveIndex, useWidth, type LegendItem } from "./frame.js";
 
 /** Bu genişliğin altındaki parçanın içine yüzde yazılmaz; değer ipucunda ve tabloda kalır. */
 const MIN_LABEL_WIDTH = 40;
@@ -12,6 +12,8 @@ export interface RatingCounts {
 export interface RatingBarProps {
   title: string;
   counts: RatingCounts;
+  /** Yan yana çok çubuk için: başlık gizlenir, gösterge çizilmez; sayfaya bir kez `RatingLegend` konur. */
+  compact?: boolean;
 }
 
 // Renk körlüğünde yeşil ile kırmızı karışır: desen ve etiket rengin yerini tutar.
@@ -37,8 +39,19 @@ function roundedPercents(shares: readonly number[]) {
   });
 }
 
+const LEGEND: LegendItem[] = PARTS.map(({ label, color, ...rest }) => ({ label, color, mark: "block", ...("pattern" in rest ? { pattern: rest.pattern } : {}) }));
+
+/** Birden çok `compact` çubuğun ortak göstergesi. */
+export function RatingLegend() {
+  return (
+    <div className="vs-chart vs-chart-legend">
+      <Legend items={LEGEND} />
+    </div>
+  );
+}
+
 /** Bir bütünün iyi / orta / kötü parçaları. */
-export function RatingBar({ title, counts }: RatingBarProps) {
+export function RatingBar({ title, counts, compact = false }: RatingBarProps) {
   const [ref, width] = useWidth();
   const total = counts.good + counts.needsImprovement + counts.poor;
   const present = total === 0 ? [] : PARTS.filter(({ key }) => counts[key] > 0);
@@ -46,11 +59,11 @@ export function RatingBar({ title, counts }: RatingBarProps) {
   const parts = present.map((part, i) => ({ ...part, count: counts[part.key], share: counts[part.key] / total, percent: percents[i]! }));
   const { active, setActive, keyboard } = useActiveIndex(parts.length);
 
-  const legend: LegendItem[] = PARTS.map(({ label, color, ...rest }) => ({ label, color, mark: "block", ...("pattern" in rest ? { pattern: rest.pattern } : {}) }));
   const frame = {
     title,
     summary: total === 0 ? "No measurements yet." : `${parts.map(({ label, percent }) => `${percent} ${label.toLowerCase()}`).join(", ")}, from ${total} ${total === 1 ? "measurement" : "measurements"}.`,
-    legend: total === 0 ? [] : legend,
+    legend: total === 0 || compact ? [] : LEGEND,
+    hideTitle: compact,
     columns: ["Rating", "Measurements", "Share"],
     rows: () => parts.map(({ label, count, percent }) => [label, String(count), percent]),
   };

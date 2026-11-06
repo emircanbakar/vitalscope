@@ -20,6 +20,8 @@ if (import.meta.env.DEV) {
 
 With no options, `init()` sends to `http://localhost:8787/v1/e`. If the collector runs on another port, pass `init({ endpoint: "http://localhost:9000/v1/e" })`.
 
+Open `http://localhost:8787` for the panel, or run `vitalscope report` to see the results in your terminal.
+
 ## Staying out of production
 
 - **On real domains the SDK does nothing.** It starts only on `localhost`, `127.0.0.1`, `[::1]` and `*.localhost`, so it cannot collect data from real users even if it reaches a production bundle.

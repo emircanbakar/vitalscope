@@ -4,6 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { styleText } from "node:util";
 import { METRIC_NAMES, getRating, type MetricName, type Rating } from "@vitalscope/protocol";
 import { errorGroup } from "./fingerprint.js";
+import { ENVIRONMENTS, LATEST_SAMPLE, percentile } from "./queries.js";
 import { DB_FILE } from "./sqlite.js";
 
 const MAX_PAGES = 30;
@@ -14,7 +15,6 @@ const ERROR_WIDTH = 80;
 const MARKS: Record<Rating, string> = { good: "", "needs-improvement": " ~", poor: " !" };
 const COLORS = { good: "green", "needs-improvement": "yellow", poor: "red" } as const;
 /** Geliştirme sunucusu ile build'in sayıları tek p75'te karışmasın diye her ortamın kendi tablosu var. */
-const ENVIRONMENTS = ["production", "preview", "development"] as const;
 const DEV_WARNING = "Development servers run unminified code with HMR, so these numbers differ from a production build.";
 
 /**
@@ -24,11 +24,6 @@ const DEV_WARNING = "Development servers run unminified code with HMR, so these 
 function clean(text: string, width: number) {
   const safe = text.toWellFormed().replace(/[\p{Cc}\p{Cf}]/gu, " ");
   return safe.length > width ? `${safe.slice(0, width - 1)}…` : safe;
-}
-
-function percentile75(values: number[]) {
-  const sorted = values.toSorted((a, b) => a - b);
-  return sorted[Math.ceil(sorted.length * 0.75) - 1]!;
 }
 
 function formatValue(name: MetricName, value: number) {
@@ -47,9 +42,8 @@ function pagesTable(db: DatabaseSync, env: string) {
       .all(env)
       .map((row) => [row.page as string, Math.round(row.views as number)]),
   );
-  // Aynı metrik örneği değeri büyüdükçe yeniden gönderilebilir; sadece son değeri sayılır.
   const samples = db
-    .prepare("SELECT COALESCE(route, path) AS page, name, value FROM vitals WHERE env = ? AND rowid IN (SELECT MAX(rowid) FROM vitals GROUP BY session_id, metric_id)")
+    .prepare(`SELECT COALESCE(route, path) AS page, name, value FROM vitals WHERE env = ? AND ${LATEST_SAMPLE}`)
     .all(env) as { page: string; name: MetricName; value: number }[];
 
   const byPage = new Map<string, Partial<Record<MetricName, number[]>>>();
@@ -68,7 +62,7 @@ function pagesTable(db: DatabaseSync, env: string) {
     cells: METRIC_NAMES.map((name) => {
       const values = byPage.get(page)?.[name];
       if (!values) return { text: "-", rating: undefined };
-      const p75 = percentile75(values);
+      const p75 = percentile(values, 0.75);
       const rating = getRating(name, p75);
       return { text: formatValue(name, p75) + MARKS[rating], rating };
     }),

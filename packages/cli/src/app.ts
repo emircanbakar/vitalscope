@@ -1,9 +1,11 @@
+import type { DatabaseSync } from "node:sqlite";
 import { LIMITS, PROTOCOL_VERSION } from "@vitalscope/protocol";
 import { Batch } from "@vitalscope/protocol/schema";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import type { EventBuffer } from "./buffer.js";
 import { isAllowedOrigin, isLocalHost } from "./origin.js";
+import { addPanelRoutes, type PanelAssets } from "./panel.js";
 import type { StoredEvent } from "./types.js";
 
 /** Tarayıcının preflight yanıtını önbelleğe alacağı süre (sn): 24 saat. */
@@ -14,12 +16,14 @@ const JSON_BODY_TYPE = /^(text\/plain|application\/json)\s*(;|$)/i;
 export interface AppOptions {
   buffer: EventBuffer;
   now?: () => number;
+  /** Verilirse panel ve okuma API'si de sunulur. */
+  panel?: { db: DatabaseSync; assets: PanelAssets };
 }
 
 /** Yanıtların hepsi boş gövdelidir; hata detayı istemciye dönmez. */
 const empty = (status: 202 | 204 | 400 | 403 | 413 | 415 | 422 | 500) => new Response(null, { status });
 
-export function createApp({ buffer, now = Date.now }: AppOptions) {
+export function createApp({ buffer, now = Date.now, panel }: AppOptions) {
   const app = new Hono();
 
   app.use(async (c, next) => {
@@ -34,6 +38,7 @@ export function createApp({ buffer, now = Date.now }: AppOptions) {
   app.notFound(() => new Response(null, { status: 404 }));
 
   app.get("/healthz", () => new Response(null, { status: 204 }));
+  if (panel) addPanelRoutes(app, { ...panel, now });
 
   // Çerez izni hiç verilmez.
   app.options("/v1/e", (c) => {

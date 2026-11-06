@@ -1,0 +1,281 @@
+:root {
+  color-scheme: light dark;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --text: #0b0b0b;
+  --text-secondary: #52514e;
+  --border: #e1e0d9;
+  --accent: #256abf;
+  --good-text: #006300;
+  --needs-text: #8a5d00;
+  --poor-text: #b02a2a;
+  --warning-surface: #fdf3dc;
+
+  background: var(--page);
+  color: var(--text);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --text: #f0efec;
+    --text-secondary: #c3c2b7;
+    --border: #2c2c2a;
+    --accent: #86b6ef;
+    --good-text: #4cc44c;
+    --needs-text: #fab219;
+    --poor-text: #f08080;
+    --warning-surface: #2e2510;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+}
+
+a {
+  color: var(--accent);
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.header h1 {
+  font-size: 16px;
+}
+
+.header h1 a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tabs a {
+  padding: 4px 10px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.tabs a:hover {
+  color: var(--text);
+}
+
+.tabs a[aria-current="page"] {
+  background: var(--border);
+  color: var(--text);
+  font-weight: 600;
+}
+
+main {
+  display: grid;
+  /* Geniş tablo sayfayı değil kendi kabını kaydırır. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 12px;
+}
+
+.filter {
+  display: grid;
+  gap: 2px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+select,
+button {
+  max-width: 220px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+button {
+  cursor: pointer;
+}
+
+.warning {
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--warning-surface);
+}
+
+.note {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.notice {
+  padding: 24px;
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.notice h2 {
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.notice pre {
+  margin: 12px 0;
+  padding: 12px;
+  overflow-x: auto;
+  border-radius: 6px;
+  background: var(--page);
+}
+
+.stale {
+  opacity: 0.6;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.card {
+  padding: 16px 16px 0;
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.card h3 {
+  font-size: 14px;
+}
+
+.card-title,
+.card-label,
+.card-empty {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.card-value {
+  margin-top: 8px;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.card .vs-chart {
+  margin: 8px -16px 0;
+}
+
+.rating-good {
+  color: var(--good-text);
+}
+
+.rating-needs-improvement {
+  color: var(--needs-text);
+}
+
+.rating-poor {
+  color: var(--poor-text);
+}
+
+.table-section {
+  padding: 16px;
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.table-section h2 {
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.table-section table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.table-section th,
+.table-section td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 400;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.table-section th:first-child {
+  max-width: 340px;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+}
+
+.table-section thead th {
+  font-weight: 600;
+}
+
+.detail,
+.overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.detail-value strong {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.breakdowns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 480px) {
+  .cards,
+  .breakdowns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  select {
+    max-width: 150px;
+  }
+}
