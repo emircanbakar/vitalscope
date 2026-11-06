@@ -1,4 +1,6 @@
-const UUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+import { createHash } from "node:crypto";
+
+const UUID =/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
 const LONG_HEX = /\b(?=[a-f]*\d)(?:0x)?[0-9a-f]{8,}\b/gi;
 const NUMBER = /\b\d+(?:\.\d+)?\b/g;
 /** Bundler'ın dosya adına eklediği içerik özeti: `index-CyA1sY9x.js`, `main.a1b2c3d4.js`. */
@@ -49,5 +51,7 @@ export function errorGroup(type: string, message: string, stack: readonly string
   const frames = stack.flatMap((frame) => parseFrame(frame) ?? []);
   const top = frames.find((frame) => !frame.path.includes("/node_modules/")) ?? frames[0];
   const location = top && (top.name ? `${top.name} (${top.path})` : top.path);
-  return { key: JSON.stringify([type, normalizeMessage(message), location]), location };
+  const key = JSON.stringify([type, normalizeMessage(message), location]);
+  // Adrese konulabilen kısa kimlik; panelde hata detayı bu kimlikle açılır.
+  return { key, id: createHash("sha256").update(key).digest("hex").slice(0, 16), location };
 }

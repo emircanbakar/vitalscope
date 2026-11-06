@@ -279,3 +279,73 @@ button {
     max-width: 150px;
   }
 }
+
+.error-title {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.error-location {
+  color: var(--text-secondary);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.table-section th.error-cell {
+  max-width: 640px;
+  white-space: normal;
+}
+
+.stack {
+  margin: 0;
+  padding: 12px;
+  overflow-x: auto;
+  border-radius: 6px;
+  background: var(--page);
+  font-size: 12px;
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 24px;
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.facts dt {
+  display: inline;
+}
+
+.facts dd {
+  display: inline;
+  margin: 0 0 0 4px;
+  color: var(--text);
+}
+
+.detail-header {
+  padding: 16px;
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.detail-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.compare-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.change-worse {
+  color: var(--poor-text);
+}
+
+.change-better {
+  color: var(--good-text);
+}

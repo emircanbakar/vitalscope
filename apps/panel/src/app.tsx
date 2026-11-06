@@ -1,35 +1,13 @@
-import { useMemo, type MouseEvent, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Histogram, RatingBar, RatingLegend, TimeSeriesChart } from "@vitalscope/charts";
-import { METRIC_NAMES, THRESHOLDS, getRating, type MetricName, type Rating } from "@vitalscope/protocol";
+import { METRIC_NAMES, THRESHOLDS, getRating, type MetricName } from "@vitalscope/protocol";
 import type { BreakdownRow, MetricDetail, MetricSummary, Options, Overview } from "../../../packages/cli/src/queries.js";
-import { RANGES, apiQuery, useView, viewUrl, type Environment, type Range, type ViewState } from "./filters.js";
+import { LoadError, NoMatches, RatingText, ViewLink, type Navigate } from "./components.js";
+import { ErrorDetailView, ErrorListView } from "./errors.js";
+import { RANGES, apiQuery, baseView, useView, type Environment, type Range, type ViewState } from "./filters.js";
 import { FORMATS, METRIC_TITLES, RATING_LABELS } from "./format.js";
+import { ReleasesView } from "./releases.js";
 import { useData } from "./use-data.js";
-
-type Navigate = (view: ViewState) => void;
-
-function ViewLink({ view, navigate, children, current }: { view: ViewState; navigate: Navigate; children: ReactNode; current?: boolean }) {
-  function onClick(event: MouseEvent) {
-    // Yeni sekmede açma gibi tarayıcı davranışları korunur.
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    event.preventDefault();
-    navigate(view);
-  }
-  return (
-    <a href={viewUrl(view)} onClick={onClick} {...(current ? { "aria-current": "page" as const } : {})}>
-      {children}
-    </a>
-  );
-}
-
-function RatingText({ rating }: { rating: Rating }) {
-  const { mark, label } = RATING_LABELS[rating];
-  return (
-    <span className={`rating rating-${rating}`}>
-      <span aria-hidden="true">{mark}</span> {label}
-    </span>
-  );
-}
 
 function Select({ label, value, onChange, children }: { label: string; value: string; onChange: (value: string) => void; children: ReactNode }) {
   return (
@@ -46,7 +24,9 @@ function FilterRow({ view, env, options, navigate }: { view: ViewState; env: Env
   // Elle yazılmış ya da artık ölçümü olmayan bir değer de seçili görünür.
   const pages = view.page && !options.pages.includes(view.page) ? [view.page, ...options.pages] : options.pages;
   const devices = view.device && !options.devices.includes(view.device) ? [view.device, ...options.devices] : options.devices;
-  const cleared: ViewState = { range: view.range, ...(view.env ? { env: view.env } : {}), ...(view.metric ? { metric: view.metric } : {}) };
+  const cleared = { ...view };
+  delete cleared.page;
+  delete cleared.device;
   return (
     <form className="filters" aria-label="Filters" onSubmit={(event) => event.preventDefault()}>
       <Select label="Range" value={view.range} onChange={(range) => navigate({ ...view, range: range as Range })}>
@@ -286,24 +266,13 @@ function MetricView({ name, view, env, navigate }: { name: MetricName; view: Vie
   );
 }
 
-function LoadError() {
-  return (
-    <p className="notice" role="alert">
-      Could not load the data. Check that <code>vitalscope dev</code> is still running, then reload.
-    </p>
-  );
-}
-
-function NoMatches() {
-  return <p className="notice">No measurements match these filters.</p>;
-}
-
 export function App() {
   const [view, navigate] = useView();
   const { data: options, failed } = useData<Options>("/api/options");
 
   const env = view.env ?? (options?.environments.includes("production") ? "production" : options?.environments[0]);
-  const { metric, ...overview } = view;
+  const overview = baseView(view);
+  const { metric, tab, error } = view;
 
   return (
     <>
@@ -315,14 +284,20 @@ export function App() {
         </h1>
         {options && env && (
           <nav aria-label="Metrics" className="tabs">
-            <ViewLink view={overview} navigate={navigate} current={!metric}>
+            <ViewLink view={overview} navigate={navigate} current={!metric && !tab}>
               Overview
             </ViewLink>
             {METRIC_NAMES.map((name) => (
-              <ViewLink key={name} view={{ ...view, metric: name }} navigate={navigate} current={metric === name}>
+              <ViewLink key={name} view={{ ...overview, metric: name }} navigate={navigate} current={metric === name}>
                 {name}
               </ViewLink>
             ))}
+            <ViewLink view={{ ...overview, tab: "errors" }} navigate={navigate} current={tab === "errors"}>
+              Errors
+            </ViewLink>
+            <ViewLink view={{ ...overview, tab: "releases" }} navigate={navigate} current={tab === "releases"}>
+              Releases
+            </ViewLink>
           </nav>
         )}
       </header>
@@ -338,7 +313,11 @@ export function App() {
                 trusting a value.
               </p>
             )}
-            {metric ? <MetricView name={metric} view={view} env={env} navigate={navigate} /> : <OverviewView view={view} env={env} navigate={navigate} />}
+            {tab === "errors" && error && <ErrorDetailView id={error} view={view} env={env} navigate={navigate} />}
+            {tab === "errors" && !error && <ErrorListView view={view} env={env} navigate={navigate} />}
+            {tab === "releases" && <ReleasesView view={view} env={env} navigate={navigate} />}
+            {!tab && metric && <MetricView name={metric} view={view} env={env} navigate={navigate} />}
+            {!tab && !metric && <OverviewView view={view} env={env} navigate={navigate} />}
           </>
         )}
       </main>
