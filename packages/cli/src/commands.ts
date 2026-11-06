@@ -9,7 +9,7 @@ const DEFAULT_DIR = ".vitalscope";
 const USAGE = `Usage: vitalscope <command> [options]
 
 Commands:
-  dev       Start the local collector
+  dev       Start the local collector and panel
   report    Print p75 metrics and errors from collected data
 
 Options:
@@ -35,6 +35,7 @@ async function dev(port: number, dir: string): Promise<number> {
   }
   console.log(`Vitalscope collector is running.
 
+  Panel     http://localhost:${server.port}/
   Endpoint  http://localhost:${server.port}/v1/e
   Data      ${resolve(dir)}
 

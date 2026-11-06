@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS custom_events (${COMMON_SCHEMA},
 
 export interface Store {
   sink: EventSink;
+  db: DatabaseSync;
   close(): void;
 }
 
@@ -75,6 +76,7 @@ export function openStore(dir: string): Store {
   }));
 
   return {
+    db,
     sink: {
       // Tek transaction: parti ya tamamen yazılır ya hiç, yeniden deneme çift kayıt üretmez.
       async write(events) {

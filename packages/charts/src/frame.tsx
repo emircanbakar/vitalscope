@@ -90,16 +90,18 @@ interface ChartFrameProps {
   columns: readonly string[];
   /** Tablo açılmadan hesaplanmaz: yoğun serilerde binlerce satır olabilir. */
   rows: () => readonly (readonly string[])[];
+  /** Kart içinde: başlık sadece ekran okuyucuya. */
+  hideTitle?: boolean;
   children?: ReactNode;
 }
 
 /** Her grafiğin ortak kabı: başlık, özet, gösterge ve aynı değerleri veren açılır tablo. */
-export function ChartFrame({ title, summary, legend, columns, rows, children }: ChartFrameProps) {
+export function ChartFrame({ title, summary, legend, columns, rows, hideTitle = false, children }: ChartFrameProps) {
   const [open, setOpen] = useState(false);
   return (
     <figure className="vs-chart">
       <figcaption>
-        <strong className="vs-title">{title}</strong>
+        <strong className={hideTitle ? "vs-title vs-sr-only" : "vs-title"}>{title}</strong>
         <p className="vs-summary">{summary}</p>
       </figcaption>
       {legend && legend.length > 0 && <Legend items={legend} />}

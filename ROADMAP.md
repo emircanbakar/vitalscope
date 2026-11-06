@@ -6,7 +6,7 @@ Vitalscope, geliştiricinin kendi bilgisayarında çalışan, `devDependencies`'
 
 - **SDK (`@vitalscope/sdk`):** uygulamaya eklenen, sıfır bağımlılıklı tarayıcı kütüphanesi. Metrikleri, hataları ve sayfa görüntülemelerini toplar.
 - **CLI (`@vitalscope/cli`, Node 24.15+):** `vitalscope dev` yerel toplayıcıyı (Hono) başlatır; olayları doğrulayıp projedeki yerel bir dosyaya yazar, sadece `127.0.0.1` üzerinde çalışır. `vitalscope report` sonuçları terminalde gösterir.
-- **Panel:** toplanan veriyi gösteren yerel sayfa, CLI paketinden sunulur (henüz yok).
+- **Panel:** toplanan veriyi gösteren yerel sayfa; `vitalscope dev` ile aynı porttan sunulur.
 
 Veri katmanı: proje klasöründe tek SQLite dosyası (`.vitalscope/`).
 
@@ -45,7 +45,9 @@ Kurallar: her adım ayrı branch ve PR, CI yeşil olmadan merge yok, PR'lar squa
 
 | #37 | Grafik paketi | `packages/charts` (`@vitalscope/charts`, yayınlanmıyor, panele gömülür; `react` dışında bağımlılık yok, 7,9 kB gzip + CSS): `TimeSeriesChart` (1.000 noktadan sonra çizgiler Canvas'ta, eksen ve etkileşim SVG'de), `Histogram` (eşik ve yüzdelik çizgileri), `RatingBar` (renk + desen + etiket). Her grafikte tek cümlelik özet, klavye gezinmesi, açılır tablo; açık ve koyu tema. Tarayıcıda ekran görüntüleriyle kontrol edildi |
 
-Durum: 444 birim testi (protokol 53, SDK 173, CLI 163, grafik 55; `SIGTERM` testi Windows'ta atlanır) + 45 e2e testi (15 senaryo × 3 tarayıcı; 38 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut (`size-limit`, minify + gzip, bağımlılıklar dahil) ve bütçe: çekirdek 4,83 / 5 kB, attribution 5,67 / 5,8 kB, `/react` 4,74 / 4,9 kB, `/next` 4,98 / 5,15 kB, IIFE 4,91 / 5,1 kB.
+| #38 | Panel | `apps/panel` (Vite + React, ilk yük 76,5 kB gzip), `vitalscope dev` ile aynı porttan sunulur. Genel bakış: metrik kartları, sayfa tablosu. Metrik detayı: dağılım, zaman serisi (p50 / p75 / p95), histogram, sayfa ve cihaz kırılımı. Tüm filtreler adreste, geri tuşu çalışır. Ortamlar karışmaz, geliştirme verisinde uyarı var. Okuma API'si CORS vermez, başka sitelerden gelen istekleri (`Sec-Fetch-Site`) ve yerel olmayan `Host`'u reddeder; dosyalar açılışta belleğe alınır, istek dosya sistemine değmez; sıkı CSP. Gerçek SDK verisi ve zararlı metinle Chromium'da denendi |
+
+Durum: 527 birim testi (protokol 53, SDK 173, CLI 211, grafik 56, panel 34; `SIGTERM` testi Windows'ta atlanır) + 45 e2e testi (15 senaryo × 3 tarayıcı; 38 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut (`size-limit`, minify + gzip, bağımlılıklar dahil) ve bütçe: çekirdek 4,83 / 5 kB, attribution 5,67 / 5,8 kB, `/react` 4,74 / 4,9 kB, `/next` 4,98 / 5,15 kB, IIFE 4,91 / 5,1 kB.
 
 **Boyut bütçesi kararı (#16):** dokümandaki çekirdek < 3 KB ve attribution < 5 KB tutmuyor. Çekirdeği 3 KB'a indirmek için yaklaşık üçte birini (hata yakalama, SPA takibi gibi) ayrı giriş noktalarına taşımak gerekirdi. Bunun yerine bütçeler ölçülen boyutun ≈ %5 üstüne kondu; CI büyümeyi engeller. Not: playground'da attribution sayfası ayrı build edilir; aynı build'de SDK ortak bir parçaya taşınıyor ve `init` sıcak açılışta ≈ 0,2 ms (4× yavaşlatmada) yavaşlıyordu. SDK'yı ayrı bir chunk'a koyan sitelerde de benzer bir fark beklenebilir.
 
@@ -53,7 +55,6 @@ Durum: 444 birim testi (protokol 53, SDK 173, CLI 163, grafik 55; `SIGTERM` test
 
 Sırayla:
 
-- [ ] **Panel:** CLI paketinden sunulan statik sayfa (Vite + React), Next.js ve giriş yok. Genel bakış, metrik detayı, sayfa ve cihaz kırılımları, URL filtre state'i. Ortamlar raporda olduğu gibi ayrı gösterilir, geliştirme sayıları için uyarı olur
 - [ ] **Hatalar ve release'ler:** hata listesi ve detayı, iki release'in karşılaştırılması
 - [ ] **Canlı görünüm:** toplayıcıdan panele SSE; sayfayı yenileyince ölçüm hemen görünür
 - [ ] **Kalite:** seed + sorgu süresi testleri, E2E, XSS testi (hata mesajları panelde gösterilir), axe, büyük dosyada davranış
@@ -79,7 +80,7 @@ PR #11'deki e2e senaryolarından çıkanlar ve PR #13'teki çözümleri. Hedef: 
 | --- | --- | --- | --- |
 | bfcache | Chromium'da doğrulanıyor; Firefox ve WebKit'te atlanıyor | Chromium: Playwright'ın `--disable-back-forward-cache` bayrağı ve headless shell kapatıyordu (CDP `Page.backForwardCacheNotUsed` ile bulundu). Firefox: Playwright derlemesi bfcache'i ayar ve docShell ile kapatıyor, ayar açılınca `goBack` takılıyor. WebKit: SDK'sız kontrol sayfası da geri gelmiyor | Çözüldü (#13): Chromium yeni headless + bayraksız; geri gelen sayfa `load` tetiklemediği için `goBack` sadece `commit` bekler. Firefox / WebKit için test tarafında yapılacak bir şey yok; SDK'nın `unload` dinlemediğini birim testi doğruluyor |
 | Sayfadan çıkarken / kapanırken gönderim | Sayfadan çıkış 3 tarayıcıda doğrulanıyor; `page.close()` WebKit'te atlanıyor | Playwright'ın `route` yakalaması Chromium'da pagehide beacon'larını görmüyordu. WebKit `page.close()` sırasında düz bir `sendBeacon`'ı da göndermiyor | Çözüldü (#13): yerel sahte ingest sunucusu; WebKit kapanış testi aynı sayfadaki düz `sendBeacon` kontrolü gelmezse atlanır |
-| CLS | Firefox ve WebKit'te ölçülmüyor | Tarayıcılar Layout Instability API'yi desteklemiyor | Test tarafında çözüm yok; test "olay gönderilmez, sayfa kırılmaz" durumunu doğruluyor. Dashboard'da CLS'nin sadece Chromium tabanlı tarayıcılardan geldiği belirtilmeli, README'ye yazılmalı |
+| CLS | Firefox ve WebKit'te ölçülmüyor | Tarayıcılar Layout Instability API'yi desteklemiyor | Test tarafında çözüm yok; test "olay gönderilmez, sayfa kırılmaz" durumunu doğruluyor. Panel CLS sayfasında bunu belirtiyor (#38); README'ye de yazılmalı |
 | LCP değerlendirmesi | Çözüldü, izlenmeli | Yavaş açılan Firefox'ta 3 sn gecikmeye açılış süresi eklenip 4 sn'yi geçebiliyor | Test sabit `needs-improvement` yerine eşiklerle tutarlılığı kontrol ediyor; daha kararlı hale getirmek için ölçümden önce ısınma (warm-up) navigasyonu düşünülebilir |
 | `page.close()` Firefox'ta | Çoğunlukla doğrulanıyor; olay eksik ve kesinti kanıtlıysa atlanıyor (yerelde 40'ta ≈ 5) | Playwright'ın Firefox'u kapanışta o an çalışan pagehide betiğini yarıda kesiyor (`finally` bile çalışmıyor); kesinti SDK'nın dinleyicisine denk gelirse batch hiç gönderilmiyor. Firefox kapanışta önce pagehide, sonra visibilitychange tetikliyor. SDK hatası değil: önüne yoğun bir dinleyici konunca 60/60 geliyor | Çözüldü (#15): test her pagehide dinleyicisini sarar, en sondaki kontrol beacon'ı yarıda kalan olup olmadığını bildirir |
 | Firefox'ta `sendBeacon` "başarısız" görünür | Hata değil | Beacon kimlik bilgisiyle gider, toplayıcı bilerek `Allow-Credentials` vermez. Firefox isteği iletir (202), sadece yanıtın okunmasını engeller; Playwright bunu `NS_ERROR_DOM_NETWORK_ERR` olarak raporlar. Her şeyi kabul eden kontrol sunucusunda bu kayıt çıkmadı, farkın nedeni bulunmadı | Olaylar toplayıcıya ulaşıyor, SDK yanıtı okumuyor; yapılacak bir şey yok |
@@ -121,7 +122,7 @@ PR #11'deki e2e senaryolarından çıkanlar ve PR #13'teki çözümleri. Hedef: 
 
 ## Açık sorular
 
-- Canvas katmanı gerekli mi? Doküman "SVG ile 10.000 noktada 180 ms, Canvas ile 6 ms" gibi bir fark öngörüyor, ölçüm bunu doğrulamadı (#37; Intel UHD 770, gerçek pencere, sabit çizgi üzerinde hareket eden çapraz çizgi, kare başına ms). 10.000 noktada ikisi de 16,7 (4× CPU'da da). 50.000 noktada SVG 20,2, Canvas 18,7; 4× CPU'da SVG 22,6, Canvas 18,8. İlk çizimde belirgin bir üstünlük yok. Panel en fazla ≈ 2.000 nokta çizeceği için pratikte fark görünmeyebilir. Karar: doküman gereği 1.000 sınırı kaldı; zayıf bir makinede de fark çıkmazsa katman (≈ 40 satır) kaldırılabilir. Case study'de dokümandaki örnek sayılar kullanılmamalı
+- Canvas katmanı gerekli mi? Doküman "SVG ile 10.000 noktada 180 ms, Canvas ile 6 ms" gibi bir fark öngörüyor, ölçüm bunu doğrulamadı (#37; Intel UHD 770, gerçek pencere, sabit çizgi üzerinde hareket eden çapraz çizgi, kare başına ms). 10.000 noktada ikisi de 16,7 (4× CPU'da da). 50.000 noktada SVG 20,2, Canvas 18,7; 4× CPU'da SVG 22,6, Canvas 18,8. İlk çizimde belirgin bir üstünlük yok. Panelin zaman serisi en fazla 61 kova çizdiği için (#38) Canvas yolu bugün hiç çalışmıyor; Canlı görünüm adımı da ham nokta çizmezse kullanımı olmayacak. Karar: doküman gereği 1.000 sınırı kaldı; zayıf bir makinede de fark çıkmazsa katman (≈ 40 satır) kaldırılabilir. Case study'de dokümandaki örnek sayılar kullanılmamalı
 
 - `node:sqlite` kararlı olana kadar izlenmeli (Node 24.15'te release candidate). Karar: en düşük sürüm Node 24.15; sıfır bağımlılık, Node 22 kullanıcılarından daha değerli bulundu. Node dokümanının beta sayfası `DatabaseSync`'i `Database`'in eski adı olarak gösteriyor, yayından önce kontrol edilmeli
 - Soft navigation (SPA içi LCP): tarayıcı API'si olgunlaşınca v2

@@ -68,6 +68,15 @@
   font-weight: 600;
 }
 
+.vs-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .vs-summary {
   margin: 2px 0 0;
   color: var(--vs-text-secondary);
@@ -88,6 +97,15 @@
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.vs-chart-legend {
+  padding: 0;
+  background: none;
+}
+
+.vs-chart-legend .vs-legend {
+  margin: 0;
 }
 
 .vs-key {

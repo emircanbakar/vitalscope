@@ -1,6 +1,6 @@
 import { act } from "react";
 import { describe, expect, it } from "vitest";
-import { RatingBar } from "../src/index.js";
+import { RatingBar, RatingLegend } from "../src/index.js";
 import { focus, key, openTable, query, queryAll, render, resize, texts } from "./helpers.js";
 
 const counts = { good: 62, needsImprovement: 25, poor: 13 };
@@ -56,6 +56,15 @@ describe("RatingBar", () => {
   it("never rounds a rating with measurements away", () => {
     render(<RatingBar title="LCP" counts={{ good: 996, needsImprovement: 3, poor: 1 }} />);
     expect(query(".vs-summary")?.textContent).toBe(">99% good, <1% needs improvement, <1% poor, from 1000 measurements.");
+  });
+
+  it("leaves the shared legend to the page in compact mode", () => {
+    render(<RatingBar title="LCP ratings" counts={counts} compact />);
+    expect(query(".vs-legend")).toBeNull();
+    expect(query(".vs-title")?.classList.contains("vs-sr-only")).toBe(true);
+    expect(query(".vs-summary")).not.toBeNull();
+    render(<RatingLegend />);
+    expect(texts(".vs-legend li")).toEqual(["Good", "Needs improvement", "Poor"]);
   });
 
   it("explains empty data", () => {
