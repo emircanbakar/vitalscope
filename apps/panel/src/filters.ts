@@ -13,6 +13,12 @@ export interface ViewState {
   device?: string;
   range: Range;
   metric?: MetricName;
+  tab?: "errors" | "releases";
+  /** Açık hata grubu. */
+  error?: string;
+  /** Karşılaştırmanın temel ve yeni release'i; verilmezse son ikisi. */
+  a?: string;
+  b?: string;
 }
 
 /** Adres elle değiştirilebilir: bilinmeyen değerler varsayılana düşer. */
@@ -23,12 +29,20 @@ export function parseView(search: string): ViewState {
   const device = params.get("device");
   const range = params.get("range") as Range | null;
   const metric = params.get("metric") as MetricName | null;
+  const tab = params.get("tab");
+  const error = params.get("error");
+  const a = params.get("a");
+  const b = params.get("b");
   return {
     ...(env && ENVIRONMENTS.includes(env) ? { env } : {}),
     ...(page ? { page } : {}),
     ...(device ? { device } : {}),
     range: range && Object.hasOwn(RANGES, range) ? range : "all",
     ...(metric && METRIC_NAMES.includes(metric) ? { metric } : {}),
+    ...(tab === "errors" || tab === "releases" ? { tab } : {}),
+    ...(tab === "errors" && error && /^[0-9a-f]{16}$/.test(error) ? { error } : {}),
+    ...(tab === "releases" && a ? { a } : {}),
+    ...(tab === "releases" && b ? { b } : {}),
   };
 }
 
@@ -39,8 +53,17 @@ export function viewUrl(view: ViewState) {
   if (view.page) params.set("page", view.page);
   if (view.device) params.set("device", view.device);
   if (view.range !== "all") params.set("range", view.range);
+  if (view.tab) params.set("tab", view.tab);
+  if (view.error) params.set("error", view.error);
+  if (view.a) params.set("a", view.a);
+  if (view.b) params.set("b", view.b);
   const search = params.toString();
   return search ? `?${search}` : location.pathname;
+}
+
+/** Sadece filtreler: sekmeler arasında geçerken korunur, açık hata ve seçili release'ler bırakılır. */
+export function baseView({ env, page, device, range }: ViewState): ViewState {
+  return { range, ...(env ? { env } : {}), ...(page ? { page } : {}), ...(device ? { device } : {}) };
 }
 
 /** Sunucuya giden filtreler; ortam her zaman açıktır, ortamlar tek bir p75'te karışmaz. */

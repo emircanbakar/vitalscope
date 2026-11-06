@@ -51,6 +51,16 @@ With Next.js, remove the `NODE_ENV` check for the measurement, run `next build &
 
 These numbers still come from your machine and your network, not from real users.
 
+## Comparing releases
+
+Pass a `release`, such as a commit hash, and the panel can compare two of them side by side:
+
+```ts
+init({ release: "9f2c1ab" });
+```
+
+Measure both releases the same way: the same build type, pages and machine. Differences from a few page loads are mostly noise, so the panel gives no verdict below 5 measurements.
+
 ## Entry points
 
 | Entry | What it adds |

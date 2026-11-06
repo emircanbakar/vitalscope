@@ -70,5 +70,6 @@ describe("npm pack", () => {
     expect(files).toEqual(
       [...changelog, "LICENSE", "README.md", "SECURITY.md", ...entries, "dist/index-[hash].d.mts", "dist/src-[hash].mjs", "dist/vitalscope.iife.js", "package.json"].sort(),
     );
-  });
+    // `npm` süreci paralel işler arasında birkaç saniye sürebilir.
+  }, 30_000);
 });

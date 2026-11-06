@@ -3,8 +3,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { styleText } from "node:util";
 import { METRIC_NAMES, getRating, type MetricName, type Rating } from "@vitalscope/protocol";
-import { errorGroup } from "./fingerprint.js";
-import { ENVIRONMENTS, LATEST_SAMPLE, percentile } from "./queries.js";
+import { ENVIRONMENTS, LATEST_SAMPLE, getErrorGroups, percentile } from "./queries.js";
 import { DB_FILE } from "./sqlite.js";
 
 const MAX_PAGES = 30;
@@ -88,24 +87,10 @@ function pagesTable(db: DatabaseSync, env: string) {
 }
 
 function errorsList(db: DatabaseSync) {
-  const rows = db.prepare("SELECT type, message, stack, sample_rate FROM errors ORDER BY ts DESC, rowid DESC").all() as {
-    type: string;
-    message: string;
-    stack: string;
-    sample_rate: number;
-  }[];
-  // En yeni olay önce geldiği için her grupta son mesaj gösterilir.
-  const groups = new Map<string, { title: string; location: string | undefined; total: number }>();
-  for (const { type, message, stack, sample_rate } of rows) {
-    const { key, location } = errorGroup(type, message, JSON.parse(stack) as string[]);
-    const group = groups.get(key) ?? { title: `${type}: ${message}`, location, total: 0 };
-    group.total += 1 / sample_rate;
-    groups.set(key, group);
-  }
-  const errors = [...groups.values()].sort((a, b) => b.total - a.total);
+  const errors = getErrorGroups(db, {});
   return [
-    ...errors.slice(0, MAX_ERRORS).flatMap(({ title, location, total }) => [
-      `${String(Math.round(total)).padStart(5)}×  ${clean(title, ERROR_WIDTH)}`,
+    ...errors.slice(0, MAX_ERRORS).flatMap(({ type, message, location, count }) => [
+      `${String(count).padStart(5)}×  ${clean(`${type}: ${message}`, ERROR_WIDTH)}`,
       ...(location ? [`        at ${clean(location, ERROR_WIDTH)}`] : []),
     ]),
     ...more(errors.length, MAX_ERRORS, "errors"),
