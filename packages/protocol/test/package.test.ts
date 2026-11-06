@@ -12,5 +12,6 @@ describe("npm pack", () => {
     const modules = ["constants", "index", "privacy", "schema"].flatMap((m) => [`dist/${m}.d.ts`, `dist/${m}.js`, `dist/${m}.js.map`]);
     const changelog = existsSync(new URL("CHANGELOG.md", root)) ? ["CHANGELOG.md"] : [];
     expect(files).toEqual([...changelog, "LICENSE", "README.md", "SECURITY.md", ...modules, "package.json"].sort());
-  });
+    // `npm` süreci paralel işler arasında birkaç saniye sürebilir.
+  }, 30_000);
 });
