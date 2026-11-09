@@ -3,6 +3,8 @@ import { METRIC_NAMES, type MetricName } from "@vitalscope/protocol";
 
 export const RANGES = { all: "All time", "1h": "Last hour", "24h": "Last 24 hours", "7d": "Last 7 days", "30d": "Last 30 days" } as const;
 export type Range = keyof typeof RANGES;
+/** Büyük dosyada tüm geçmişi okumak yavaş; panel son 30 günle açılır, adreste sadece farklı aralık yazılır. */
+const DEFAULT_RANGE: Range = "30d";
 const ENVIRONMENTS = ["production", "preview", "development"] as const;
 export type Environment = (typeof ENVIRONMENTS)[number];
 
@@ -37,7 +39,7 @@ export function parseView(search: string): ViewState {
     ...(env && ENVIRONMENTS.includes(env) ? { env } : {}),
     ...(page ? { page } : {}),
     ...(device ? { device } : {}),
-    range: range && Object.hasOwn(RANGES, range) ? range : "all",
+    range: range && Object.hasOwn(RANGES, range) ? range : DEFAULT_RANGE,
     ...(metric && METRIC_NAMES.includes(metric) ? { metric } : {}),
     ...(tab === "errors" || tab === "releases" ? { tab } : {}),
     ...(tab === "errors" && error && /^[0-9a-f]{16}$/.test(error) ? { error } : {}),
@@ -52,7 +54,7 @@ export function viewUrl(view: ViewState) {
   if (view.env) params.set("env", view.env);
   if (view.page) params.set("page", view.page);
   if (view.device) params.set("device", view.device);
-  if (view.range !== "all") params.set("range", view.range);
+  if (view.range !== DEFAULT_RANGE) params.set("range", view.range);
   if (view.tab) params.set("tab", view.tab);
   if (view.error) params.set("error", view.error);
   if (view.a) params.set("a", view.a);

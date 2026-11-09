@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { styleText } from "node:util";
 import { METRIC_NAMES, getRating, type MetricName, type Rating } from "@vitalscope/protocol";
-import { ENVIRONMENTS, LATEST_SAMPLE, getErrorGroups, percentile } from "./queries.js";
+import { ENVIRONMENTS, getErrorGroups, getOverview, type Environment } from "./queries.js";
 import { DB_FILE } from "./sqlite.js";
 
 const MAX_PAGES = 30;
@@ -34,36 +34,19 @@ function more(total: number, shown: number, label: string) {
   return total > shown ? [`…and ${total - shown} more ${label}`] : [];
 }
 
-function pagesTable(db: DatabaseSync, env: string) {
-  const views = new Map(
-    db
-      .prepare("SELECT COALESCE(route, path) AS page, SUM(1.0 / sample_rate) AS views FROM pageviews WHERE env = ? GROUP BY page")
-      .all(env)
-      .map((row) => [row.page as string, Math.round(row.views as number)]),
-  );
-  const samples = db
-    .prepare(`SELECT COALESCE(route, path) AS page, name, value FROM vitals WHERE env = ? AND ${LATEST_SAMPLE}`)
-    .all(env) as { page: string; name: MetricName; value: number }[];
-
-  const byPage = new Map<string, Partial<Record<MetricName, number[]>>>();
-  for (const { page, name, value } of samples) {
-    const metrics = byPage.get(page) ?? {};
-    (metrics[name] ??= []).push(value);
-    byPage.set(page, metrics);
-  }
-
-  const pages = [...new Set([...views.keys(), ...byPage.keys()])].sort((a, b) => (views.get(b) ?? 0) - (views.get(a) ?? 0) || a.localeCompare(b));
+/** Panelin genel bakışıyla aynı sorgu: sayılar ikisinde de aynı. */
+function pagesTable(db: DatabaseSync, env: Environment) {
+  const { pages, morePages } = getOverview(db, { env });
   if (pages.length === 0) return [];
 
-  const rows = pages.slice(0, MAX_PAGES).map((page) => ({
+  const rows = pages.slice(0, MAX_PAGES).map(({ page, views, p75 }) => ({
     page: clean(page, PAGE_WIDTH),
-    views: String(views.get(page) ?? 0),
+    views: String(views),
     cells: METRIC_NAMES.map((name) => {
-      const values = byPage.get(page)?.[name];
-      if (!values) return { text: "-", rating: undefined };
-      const p75 = percentile(values, 0.75);
-      const rating = getRating(name, p75);
-      return { text: formatValue(name, p75) + MARKS[rating], rating };
+      const value = p75[name];
+      if (value === undefined) return { text: "-", rating: undefined };
+      const rating = getRating(name, value);
+      return { text: formatValue(name, value) + MARKS[rating], rating };
     }),
   }));
 
@@ -83,7 +66,7 @@ function pagesTable(db: DatabaseSync, env: string) {
       }),
     ].join("  "),
   );
-  return [header, ...lines, ...more(pages.length, rows.length, "pages")];
+  return [header, ...lines, ...more(pages.length + morePages, rows.length, "pages")];
 }
 
 function errorsList(db: DatabaseSync) {

@@ -1,9 +1,11 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { METRIC_NAMES, getRating, type MetricName } from "@vitalscope/protocol";
 import { afterEach, describe, expect, it } from "vitest";
-import { getMetricDetail, getOptions, getOverview, percentile, type Filters } from "../src/queries.js";
-import { openStore, type Store } from "../src/sqlite.js";
+import { getMetricDetail, getOptions, getOverview, sortedPercentile, type Filters } from "../src/queries.js";
+import { DB_FILE, openStore, type Store } from "../src/sqlite.js";
 import type { StoredEvent } from "../src/types.js";
 
 const NOW = Date.UTC(2026, 10, 6, 12);
@@ -38,17 +40,48 @@ async function dbWith(events: StoredEvent[]) {
 
 const production: Filters = { env: "production" };
 
-describe("percentile", () => {
+describe("sortedPercentile", () => {
   it("uses the nearest rank", () => {
-    expect(percentile([400, 100, 300, 200], 0.75)).toBe(300);
-    expect(percentile([100, 200], 0.5)).toBe(100);
-    expect(percentile([7], 0.95)).toBe(7);
+    expect(sortedPercentile([100, 200, 300, 400], 0.75)).toBe(300);
+    expect(sortedPercentile([100, 200], 0.5)).toBe(100);
+    expect(sortedPercentile([100, 200], 0.75)).toBe(200);
+    expect(sortedPercentile([7], 0.95)).toBe(7);
+  });
+});
+
+describe("repeated metrics", () => {
+  it("keeps only the last value, also across batches", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "vitalscope-queries-"));
+    const store = openStore(dir);
+    opened.push({ store, dir });
+    await store.sink.write([lcp(9000, {}, NOW, "same")]);
+    await store.sink.write([lcp(100, {}, NOW + MINUTE, "same"), lcp(500, { sid: "fedcba9876543210" }, NOW, "same")]);
+    expect(store.db.prepare("SELECT value, ts FROM vitals ORDER BY value").all()).toEqual([
+      { value: 100, ts: NOW + MINUTE },
+      { value: 500, ts: NOW },
+    ]);
+  });
+
+  it("removes repeats written by an earlier version", () => {
+    const dir = mkdtempSync(join(tmpdir(), "vitalscope-queries-"));
+    const old = new DatabaseSync(join(dir, DB_FILE));
+    old.exec(`CREATE TABLE vitals (ts INTEGER NOT NULL, received_at INTEGER NOT NULL, sample_rate REAL NOT NULL, sdk TEXT NOT NULL, path TEXT NOT NULL,
+      route TEXT, release TEXT, env TEXT NOT NULL, device TEXT NOT NULL, conn TEXT, nav_type TEXT, session_id TEXT NOT NULL, name TEXT NOT NULL,
+      metric_id TEXT NOT NULL, value REAL NOT NULL, rating TEXT NOT NULL, attr_target TEXT, attr_url TEXT, attr_script TEXT, attr_type TEXT, attr TEXT)`);
+    const insert = old.prepare("INSERT INTO vitals VALUES (?, 0, 1, '0.1.1', '/', NULL, NULL, 'production', 'desktop', NULL, NULL, 's', 'LCP', 'm', ?, 'good', NULL, NULL, NULL, NULL, NULL)");
+    insert.run(NOW, 9000);
+    insert.run(NOW, 100);
+    old.close();
+
+    const store = openStore(dir);
+    opened.push({ store, dir });
+    expect(getOverview(store.db, production).metrics[0]).toMatchObject({ count: 1, p75: 100 });
   });
 });
 
 describe("getOptions", () => {
   it("lists what was collected, environments in a fixed order", async () => {
-    const db = await dbWith([lcp(1, { env: "development", device: "mobile" }), view({ path: "/a", route: "/[id]" }), view({ path: "/b" })]);
+    const db = await dbWith([view({ env: "development", device: "mobile" }), view({ path: "/a", route: "/[id]" }), view({ path: "/b" })]);
     expect(getOptions(db)).toEqual({ environments: ["production", "development"], pages: ["/", "/[id]", "/b"], devices: ["desktop", "mobile"] });
   });
 
@@ -100,6 +133,41 @@ describe("getOverview", () => {
   it("scales views by the sample rate", async () => {
     const db = await dbWith([view({ sr: 0.5 })]);
     expect(getOverview(db, production).pages[0]?.views).toBe(2);
+  });
+
+  it("finds the same percentiles and counts as sorting in memory", async () => {
+    // Index üzerinde sıra atlama ile hesaplanır; eşit değerler, CLS kesirleri ve filtreler sonucu değiştirmemeli.
+    let state = 7;
+    const random = () => (state = (state * 48_271) % 2_147_483_647) / 2_147_483_647;
+    const pages = ["/a", "/b", "/c"];
+    const devices = ["desktop", "mobile"] as const;
+    const events = Array.from({ length: 600 }, (_, i) => {
+      const name = METRIC_NAMES[i % METRIC_NAMES.length]!;
+      const value = name === "CLS" ? Math.round(random() * 40) / 100 : Math.round(random() * 60) * 100;
+      const ctx = { path: pages[Math.floor(random() * 3)]!, device: devices[Math.floor(random() * 2)]!, sid: `s${i}` };
+      return stored({ t: "vital", ts: NOW - Math.floor(random() * 120) * MINUTE, name, value, rating: "good", id: "m" }, ctx);
+    });
+    const db = await dbWith(events);
+    const rows = events.map(({ ctx, event }) => ({ page: ctx.path, device: ctx.device, ...(event as { name: MetricName; value: number; ts: number }) }));
+
+    for (const filters of [production, { ...production, device: "mobile" }, { ...production, since: NOW - 60 * MINUTE }, { ...production, page: "/b" }]) {
+      const matching = rows.filter((row) => (!filters.device || row.device === filters.device) && (!filters.since || row.ts >= filters.since) && (!filters.page || row.page === filters.page));
+      const p75 = (items: typeof rows) => sortedPercentile(items.map((row) => row.value).toSorted((a, b) => a - b), 0.75);
+      const overview = getOverview(db, filters);
+      for (const metric of overview.metrics) {
+        const items = matching.filter((row) => row.name === metric.name);
+        const ratings = items.map((row) => getRating(metric.name, row.value));
+        expect(metric).toMatchObject({
+          count: items.length,
+          p75: p75(items),
+          counts: { good: ratings.filter((r) => r === "good").length, needsImprovement: ratings.filter((r) => r === "needs-improvement").length, poor: ratings.filter((r) => r === "poor").length },
+        });
+        for (const page of overview.pages) {
+          const onPage = items.filter((row) => row.page === page.page);
+          expect(page.p75[metric.name]).toBe(onPage.length > 0 ? p75(onPage) : undefined);
+        }
+      }
+    }
   });
 
   it("limits the page list and says how many are hidden", async () => {

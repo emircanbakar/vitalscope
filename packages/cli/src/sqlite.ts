@@ -47,6 +47,9 @@ CREATE TABLE IF NOT EXISTS errors (${COMMON_SCHEMA},
   stack TEXT NOT NULL,
   handled INTEGER NOT NULL
 );
+-- Genel bakış yüzdelikleri bu index'lerde sıra atlayarak bulur; zaman ve cihaz filtresi de tabloya inmez.
+CREATE INDEX IF NOT EXISTS vitals_metric ON vitals (env, name, value, ts, device);
+CREATE INDEX IF NOT EXISTS vitals_page ON vitals (env, COALESCE(route, path), name, value, ts, device);
 CREATE TABLE IF NOT EXISTS pageviews (${COMMON_SCHEMA});
 CREATE TABLE IF NOT EXISTS custom_events (${COMMON_SCHEMA},
   name TEXT NOT NULL,
@@ -68,12 +71,22 @@ export function openStore(dir: string): Store {
   // WAL: rapor ve panel, toplayıcı yazarken de okuyabilir. Kilitliyse kısa süre beklenir; sonrası tamponun yeniden denemesi.
   db.exec("PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 1000;");
   db.exec(SCHEMA);
+  // Aynı metrik örneği değeri büyüdükçe yeniden gönderilir; tabloda sadece son değeri kalır, sorgular ayıklamaz.
+  // Önceki sürümün yazdığı tekrarlar index'ten önce temizlenir.
+  if (!db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'vitals_sample'").get()) {
+    db.exec(`DELETE FROM vitals WHERE rowid NOT IN (SELECT MAX(rowid) FROM vitals GROUP BY session_id, metric_id);
+      CREATE UNIQUE INDEX vitals_sample ON vitals (session_id, metric_id);`);
+  }
 
-  const inserts = Object.entries(COLUMNS).map(([table, columns]) => ({
-    table: table as keyof Rows,
-    columns,
-    statement: db.prepare(`INSERT INTO ${table} (${columns.join(", ")}) VALUES (${columns.map((column) => `:${column}`).join(", ")})`),
-  }));
+  const inserts = Object.entries(COLUMNS).map(([table, columns]) => {
+    const latest = `ON CONFLICT (session_id, metric_id) DO UPDATE SET ${columns.map((column) => `${column} = excluded.${column}`).join(", ")}`;
+    const values = `VALUES (${columns.map((column) => `:${column}`).join(", ")})`;
+    return {
+      table: table as keyof Rows,
+      columns,
+      statement: db.prepare(`INSERT INTO ${table} (${columns.join(", ")}) ${values}${table === "vitals" ? ` ${latest}` : ""}`),
+    };
+  });
 
   return {
     db,
