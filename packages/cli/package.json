@@ -13,7 +13,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json && node scripts/copy-panel.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "seed": "node scripts/seed.mjs"
   },
   "dependencies": {
     "@hono/node-server": "2.1.5",

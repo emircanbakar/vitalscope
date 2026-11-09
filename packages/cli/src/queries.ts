@@ -13,8 +13,6 @@ const MIN_BUCKET_SAMPLES = 5;
 const MINUTE = 60_000;
 const BUCKETS = [MINUTE, 5 * MINUTE, 15 * MINUTE, 60 * MINUTE, 360 * MINUTE, 1440 * MINUTE, 10_080 * MINUTE];
 const MAX_ROWS = 100;
-/** Aynı metrik örneği değeri büyüdükçe yeniden gönderilebilir; sadece son değeri sayılır. */
-export const LATEST_SAMPLE = "rowid IN (SELECT MAX(rowid) FROM vitals GROUP BY session_id, metric_id)";
 
 export interface Filters {
   env: Environment;
@@ -117,17 +115,16 @@ export interface MetricDetail {
   devices: BreakdownRow[];
 }
 
-interface Sample {
-  page: string;
-  device: string;
-  name: MetricName;
-  value: number;
-  ts: number;
-}
+/** Büyük dosyada süre satırları JS'e taşımakta geçer; satırlar nesne yerine dizi olarak gelir. */
+type Sample = [page: string, device: string, name: MetricName, value: number, ts: number];
+const PAGE = 0;
+const DEVICE = 1;
+const NAME = 2;
+const VALUE = 3;
+const TS = 4;
 
-/** En yakın sıra yöntemi; `values` boş olmamalı. */
-export function percentile(values: readonly number[], q: number) {
-  const sorted = values.toSorted((a, b) => a - b);
+/** En yakın sıra yöntemi; `sorted` küçükten büyüğe sıralı ve boş olmamalı. */
+export function sortedPercentile(sorted: readonly number[], q: number) {
   return sorted[Math.ceil(sorted.length * q) - 1]!;
 }
 
@@ -157,14 +154,21 @@ function where({ env, page, device, since, release }: Partial<Filters>) {
   return { sql: clauses.join(" AND "), params };
 }
 
+/**
+ * Değere göre sıralı gelir: gruplar da sıralı kalır, yüzdelik için yeniden sıralanmaz.
+ * Satırların çoğu okunur; index'ten gidip her satır için tabloya bakmak sırayla taramadan katlarca yavaş.
+ */
 function samples(db: DatabaseSync, filters: Filters, name?: MetricName) {
   const { sql, params } = where(filters);
   const metric = name ? " AND name = ?" : "";
-  return db
-    .prepare(`SELECT COALESCE(route, path) AS page, device, name, value, ts FROM vitals WHERE ${sql}${metric} AND ${LATEST_SAMPLE}`)
-    .all(...params, ...(name ? [name] : [])) as unknown as Sample[];
+  const statement = db.prepare(`SELECT COALESCE(route, path), device, name, value, ts FROM vitals NOT INDEXED WHERE ${sql}${metric} ORDER BY value`);
+  statement.setReturnArrays(true);
+  return statement.all(...params, ...(name ? [name] : [])) as unknown as Sample[];
 }
 
+const valuesOf = (items: readonly Sample[]) => items.map((item) => item[VALUE]);
+
+/** `values` sıralı olmalı. */
 function summarize(name: MetricName, values: readonly number[]): MetricSummary {
   const counts: RatingCounts = { good: 0, needsImprovement: 0, poor: 0 };
   for (const value of values) {
@@ -172,7 +176,7 @@ function summarize(name: MetricName, values: readonly number[]): MetricSummary {
     counts[rating === "needs-improvement" ? "needsImprovement" : rating]++;
   }
   if (values.length === 0) return { name, count: 0, p75: null, rating: null, counts };
-  const p75 = percentile(values, 0.75);
+  const p75 = sortedPercentile(values, 0.75);
   return { name, count: values.length, p75, rating: getRating(name, p75), counts };
 }
 
@@ -186,32 +190,53 @@ function groupBy<T>(items: readonly T[], key: (item: T) => string) {
   return groups;
 }
 
+/** SDK her sayfa açılışında metriklerden önce pageview gönderir; seçenekler çok daha küçük `pageviews` ve `errors`'tan okunur. */
 export function getOptions(db: DatabaseSync): Options {
   const column = (sql: string) => db.prepare(sql).all().map((row) => row.value as string);
-  const pages = "SELECT COALESCE(route, path) AS value FROM vitals UNION SELECT COALESCE(route, path) FROM pageviews UNION SELECT COALESCE(route, path) FROM errors ORDER BY 1 LIMIT 200";
-  const devices = "SELECT device AS value FROM vitals UNION SELECT device FROM pageviews UNION SELECT device FROM errors ORDER BY 1";
-  const environments = new Set(column("SELECT env AS value FROM vitals UNION SELECT env FROM pageviews UNION SELECT env FROM errors"));
+  const pages = "SELECT COALESCE(route, path) AS value FROM pageviews UNION SELECT COALESCE(route, path) FROM errors ORDER BY 1 LIMIT 200";
+  const devices = "SELECT device AS value FROM pageviews UNION SELECT device FROM errors ORDER BY 1";
+  const environments = new Set(column("SELECT env AS value FROM pageviews UNION SELECT env FROM errors"));
   return { environments: ENVIRONMENTS.filter((env) => environments.has(env)), pages: column(pages), devices: column(devices) };
 }
 
+/**
+ * Satırlar JS'e taşınmaz: sayılar ve yüzdelikler index üzerinde bulunur (`vitals_metric`, `vitals_page`).
+ * Yüzdelik, değere göre sıralı index'te en yakın sıradaki satırdır; `sortedPercentile` ile aynı sonucu verir.
+ */
 export function getOverview(db: DatabaseSync, filters: Filters): Overview {
-  const all = samples(db, filters);
-  const byName = groupBy(all, (sample) => sample.name);
   const { sql, params } = where(filters);
+  const p75At = (extra: string, extraParams: SQLInputValue[], count: number) =>
+    db.prepare(`SELECT value FROM vitals WHERE ${sql}${extra} ORDER BY value LIMIT 1 OFFSET ?`).get(...params, ...extraParams, Math.ceil(count * 0.75) - 1)!.value as number;
+
+  const metrics = METRIC_NAMES.map((name): MetricSummary => {
+    const { good, poor } = THRESHOLDS[name];
+    const row = db.prepare(`SELECT COUNT(*) AS count, TOTAL(value <= ?) AS good, TOTAL(value > ?) AS poor FROM vitals WHERE ${sql} AND name = ?`).get(good, poor, ...params, name)!;
+    const count = row.count as number;
+    const counts = { good: row.good as number, needsImprovement: count - (row.good as number) - (row.poor as number), poor: row.poor as number };
+    if (count === 0) return { name, count, p75: null, rating: null, counts };
+    const p75 = p75At(" AND name = ?", [name], count);
+    return { name, count, p75, rating: getRating(name, p75), counts };
+  });
+
   const views = new Map(
     db
       .prepare(`SELECT COALESCE(route, path) AS page, SUM(1.0 / sample_rate) AS views FROM pageviews WHERE ${sql} GROUP BY page`)
       .all(...params)
       .map((row) => [row.page as string, Math.round(row.views as number)]),
   );
-  const byPage = groupBy(all, (sample) => sample.page);
-  const names = [...new Set([...views.keys(), ...byPage.keys()])].sort((a, b) => (views.get(b) ?? 0) - (views.get(a) ?? 0) || a.localeCompare(b));
+  // Sayfa seçiliyse sayılar metriklerinkiyle aynı. Sorgu sayfa ifadesini her satırda tablodan okur, 1 milyon olayda ≈ 0,8 sn.
+  const counts =
+    filters.page === undefined
+      ? (db.prepare(`SELECT COALESCE(route, path) AS page, name, COUNT(*) AS count FROM vitals WHERE ${sql} GROUP BY page, name`).all(...params) as unknown as { page: string; name: MetricName; count: number }[])
+      : metrics.filter(({ count }) => count > 0).map(({ name, count }) => ({ page: filters.page!, name, count }));
+  const groups = groupBy(counts, (group) => group.page);
+  const names = [...new Set([...views.keys(), ...groups.keys()])].sort((a, b) => (views.get(b) ?? 0) - (views.get(a) ?? 0) || a.localeCompare(b));
 
   return {
-    metrics: METRIC_NAMES.map((name) => summarize(name, (byName.get(name) ?? []).map((sample) => sample.value))),
+    metrics,
+    // Yüzdelik sadece gösterilen sayfalar için aranır.
     pages: names.slice(0, MAX_ROWS).map((page) => {
-      const metrics = groupBy(byPage.get(page) ?? [], (sample) => sample.name);
-      const p75 = Object.fromEntries([...metrics].map(([name, items]) => [name, percentile(items.map((item) => item.value), 0.75)]));
+      const p75 = Object.fromEntries((groups.get(page) ?? []).map(({ name, count }) => [name, p75At(" AND COALESCE(route, path) = ? AND name = ?", [page, name], count)]));
       return { page, views: views.get(page) ?? 0, p75 };
     }),
     morePages: Math.max(0, names.length - MAX_ROWS),
@@ -221,26 +246,27 @@ export function getOverview(db: DatabaseSync, filters: Filters): Overview {
 function timeSeries(items: readonly Sample[]): MetricDetail["series"] {
   const series: MetricDetail["series"] = { x: [], p50: [], p75: [], p95: [] };
   if (items.length === 0) return series;
-  const times = items.map((item) => item.ts);
-  const span = Math.max(...times) - Math.min(...times);
+  const times = items.map((item) => item[TS]);
+  const span = maxOf(times) - minOf(times);
   // İki ölçümden yüzdelik çıkmaz: az veride kovalar büyür, p75 ile p95 aynı çizgiye düşmez.
   const maxBuckets = Math.max(1, Math.min(MAX_BUCKETS, Math.floor(items.length / MIN_BUCKET_SAMPLES)));
   const step = BUCKETS.find((bucket) => span / bucket <= maxBuckets) ?? BUCKETS.at(-1)!;
-  const buckets = [...groupBy(items, (item) => String(Math.floor(item.ts / step) * step))].sort(([a], [b]) => Number(a) - Number(b));
+  const buckets = [...groupBy(items, (item) => String(Math.floor(item[TS] / step) * step))].sort(([a], [b]) => Number(a) - Number(b));
   for (const [time, group] of buckets) {
-    const values = group.map((item) => item.value);
+    const values = valuesOf(group);
     series.x.push(Number(time));
-    series.p50.push(percentile(values, 0.5));
-    series.p75.push(percentile(values, 0.75));
-    series.p95.push(percentile(values, 0.95));
+    series.p50.push(sortedPercentile(values, 0.5));
+    series.p75.push(sortedPercentile(values, 0.75));
+    series.p95.push(sortedPercentile(values, 0.95));
   }
   return series;
 }
 
+/** `values` sıralı olmalı. */
 function histogram(name: MetricName, values: readonly number[]): MetricDetail["histogram"] {
   const width = BIN_WIDTH[name];
   // Değerler eşiğin çok altında olsa da eşikler görünsün; değerlendirme nerede durduğunuzu göstermeli.
-  const needed = Math.ceil(Math.max(THRESHOLDS[name].poor + width, ...values) / width - 1e-9);
+  const needed = Math.ceil(Math.max(THRESHOLDS[name].poor + width, values.at(-1) ?? 0) / width - 1e-9);
   const count = Math.min(MAX_BINS, needed);
   const round = (value: number) => Number(value.toFixed(6));
   const bins = Array.from({ length: count }, (_, i) => ({ start: round(i * width), end: round((i + 1) * width), count: 0 }));
@@ -251,14 +277,14 @@ function histogram(name: MetricName, values: readonly number[]): MetricDetail["h
     if (index < count) bins[index]!.count++;
     else above++;
   }
-  const percentiles = values.length === 0 ? null : { p50: percentile(values, 0.5), p75: percentile(values, 0.75), p95: percentile(values, 0.95) };
+  const percentiles = values.length === 0 ? null : { p50: sortedPercentile(values, 0.5), p75: sortedPercentile(values, 0.75), p95: sortedPercentile(values, 0.95) };
   return { bins, above, percentiles };
 }
 
 function breakdown(name: MetricName, items: readonly Sample[], key: (item: Sample) => string): BreakdownRow[] {
   return [...groupBy(items, key)]
     .map(([group, rows]) => {
-      const p75 = percentile(rows.map((row) => row.value), 0.75);
+      const p75 = sortedPercentile(valuesOf(rows), 0.75);
       return { key: group, count: rows.length, p75, rating: getRating(name, p75) };
     })
     .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key))
@@ -267,13 +293,13 @@ function breakdown(name: MetricName, items: readonly Sample[], key: (item: Sampl
 
 export function getMetricDetail(db: DatabaseSync, name: MetricName, filters: Filters): MetricDetail {
   const items = samples(db, filters, name);
-  const values = items.map((item) => item.value);
+  const values = valuesOf(items);
   return {
     summary: summarize(name, values),
     series: timeSeries(items),
     histogram: histogram(name, values),
-    pages: breakdown(name, items, (item) => item.page),
-    devices: breakdown(name, items, (item) => item.device),
+    pages: breakdown(name, items, (item) => item[PAGE]),
+    devices: breakdown(name, items, (item) => item[DEVICE]),
   };
 }
 
@@ -359,7 +385,8 @@ export function getErrorDetail(db: DatabaseSync, id: string, filters: Filters): 
 /** Son görülen önce. */
 export function getReleases(db: DatabaseSync, filters: Filters): string[] {
   const { sql, params } = where(filters);
-  const union = ["vitals", "pageviews", "errors"].map((table) => `SELECT release, ts FROM ${table} WHERE ${sql}`).join(" UNION ALL ");
+  // `vitals`'ın index'leri `release` taşımaz; sırayla taramak her satırda tabloya dönmekten hızlı.
+  const union = ["vitals NOT INDEXED", "pageviews", "errors"].map((table) => `SELECT release, ts FROM ${table} WHERE ${sql}`).join(" UNION ALL ");
   return db
     .prepare(`SELECT release FROM (${union}) WHERE release IS NOT NULL GROUP BY release ORDER BY MAX(ts) DESC LIMIT ${MAX_ROWS}`)
     .all(...params, ...params, ...params)
@@ -372,11 +399,11 @@ export function getComparison(db: DatabaseSync, filters: Filters, a: string, b: 
     const row = db.prepare(`SELECT SUM(1.0 / sample_rate) AS views FROM pageviews WHERE ${sql}`).get(...params);
     return Math.round((row?.views as number | null) ?? 0);
   };
-  const side = (release: string) => groupBy(samples(db, { ...filters, release }), (sample) => sample.name);
+  const side = (release: string) => groupBy(samples(db, { ...filters, release }), (sample) => sample[NAME]);
   const metricsA = side(a);
   const metricsB = side(b);
   const pick = (name: MetricName, groups: Map<string, Sample[]>): ReleaseSide => {
-    const { count, p75, rating } = summarize(name, (groups.get(name) ?? []).map((sample) => sample.value));
+    const { count, p75, rating } = summarize(name, valuesOf(groups.get(name) ?? []));
     return { count, p75, rating };
   };
 

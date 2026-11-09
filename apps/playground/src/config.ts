@@ -5,9 +5,11 @@ import type { Config } from "@vitalscope/sdk";
  * kimliğini verir, böylece paralel testlerin olayları karışmaz; elle gezinmede `manual` kullanılır.
  */
 const run = (globalThis as { __vitalscopeRun?: string }).__vitalscopeRun ?? "manual";
+/** Panel testleri olayları gerçek toplayıcıya (`vitalscope dev`) gönderir. */
+const endpoint = (globalThis as { __vitalscopeEndpoint?: string }).__vitalscopeEndpoint;
 
 export const config: Config = {
   key: "pk_3f9a0c1d2e4b5a6978c0d1e2",
-  endpoint: `http://127.0.0.1:4174/v1/e/${run}`,
+  endpoint: endpoint ?? `http://127.0.0.1:4174/v1/e/${run}`,
   environment: "development",
 };

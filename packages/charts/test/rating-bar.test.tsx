@@ -21,9 +21,10 @@ describe("RatingBar", () => {
     expect(query(".vs-legend .vs-pattern-falling")).not.toBeNull();
   });
 
-  it("uses dark text on the yellow part", () => {
+  it("uses dark text on the green and yellow parts", () => {
+    // Beyaz yazı yeşilde 3,35:1, 12 px yazı için 4,5:1 gerekir; koyu yazı ≈ 6:1. Kırmızıda beyaz ≈ 4,8:1.
     render(<RatingBar title="LCP" counts={counts} />);
-    expect(parts().map((part) => part.classList.contains("vs-on-light"))).toEqual([false, true, false]);
+    expect(parts().map((part) => part.classList.contains("vs-on-light"))).toEqual([true, true, false]);
   });
 
   it("draws nothing for a rating with no measurements", () => {

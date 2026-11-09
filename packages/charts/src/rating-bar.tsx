@@ -78,7 +78,7 @@ export function RatingBar({ title, counts, compact = false }: RatingBarProps) {
           {parts.map(({ key, color, share, percent, ...rest }, i) => (
             <div
               key={key}
-              className={`vs-rating-part${"pattern" in rest ? ` vs-pattern-${rest.pattern}` : ""}${key === "needsImprovement" ? " vs-on-light" : ""}${i === active ? " vs-bar-active" : ""}`}
+              className={`vs-rating-part${"pattern" in rest ? ` vs-pattern-${rest.pattern}` : ""}${key === "poor" ? "" : " vs-on-light"}${i === active ? " vs-bar-active" : ""}`}
               style={{ flexGrow: share, backgroundColor: color }}
               onPointerEnter={() => setActive(i)}
             >

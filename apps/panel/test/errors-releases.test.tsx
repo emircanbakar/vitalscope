@@ -120,7 +120,7 @@ describe("view state", () => {
 describe("error list", () => {
   it("lists groups with count and location, as text", async () => {
     await show("/?tab=errors");
-    expect(requested()).toContain("/api/errors?env=production");
+    expect(requested()).toContain("/api/errors?env=production&range=30d");
     expect(rowOf("load (/src/a.js)").textContent).toContain("12");
     expect(text()).toContain(`TypeError: ${HOSTILE}`);
     expect(container.querySelector("main img")).toBeNull();
@@ -146,7 +146,7 @@ describe("error list", () => {
     await flush();
     expect(location.search).toContain(`error=${ID}`);
     expect(location.search).toContain("device=mobile");
-    expect(requested().at(-1)).toBe(`/api/errors/${ID}?env=production&device=mobile`);
+    expect(requested().at(-1)).toBe(`/api/errors/${ID}?env=production&device=mobile&range=30d`);
   });
 });
 
@@ -224,7 +224,7 @@ describe("describeChange", () => {
 describe("releases", () => {
   it("compares the latest two by default", async () => {
     await show("/?tab=releases");
-    expect(requested()).toContain("/api/compare?env=production&a=v1&b=v2");
+    expect(requested()).toContain("/api/compare?env=production&range=30d&a=v1&b=v2");
     expect(select("Baseline").value).toBe("v1");
     expect(select("Compare with").value).toBe("v2");
     expect(rowOf("LCP p75").textContent).toContain("Slower");
@@ -249,12 +249,12 @@ describe("releases", () => {
     await show("/?tab=releases");
     await choose(select("Baseline"), "a&b=c");
     expect(parseView(location.search).a).toBe("a&b=c");
-    expect(requested().at(-1)).toBe("/api/compare?env=production&a=a%26b%3Dc&b=v2");
+    expect(requested().at(-1)).toBe("/api/compare?env=production&range=30d&a=a%26b%3Dc&b=v2");
   });
 
   it("opens from a shared address", async () => {
     await show("/?tab=releases&a=v0&b=v1");
-    expect(requested()).toContain("/api/compare?env=production&a=v0&b=v1");
+    expect(requested()).toContain("/api/compare?env=production&range=30d&a=v0&b=v1");
   });
 
   it("asks for two different releases", async () => {

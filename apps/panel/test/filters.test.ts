@@ -6,12 +6,16 @@ describe("parseView", () => {
     expect(parseView("?metric=LCP&env=development&page=%2Fa&device=mobile&range=7d")).toEqual({ metric: "LCP", env: "development", page: "/a", device: "mobile", range: "7d" });
   });
 
-  it("defaults to all time", () => {
-    expect(parseView("")).toEqual({ range: "all" });
+  it("defaults to the last 30 days", () => {
+    expect(parseView("")).toEqual({ range: "30d" });
+  });
+
+  it("keeps all time in the address", () => {
+    expect(parseView(viewUrl({ range: "all" }))).toEqual({ range: "all" });
   });
 
   it.each(["?metric=NOPE", "?env=staging", "?range=1y", "?range=__proto__", "?metric=__proto__", "?page=", "?device="])("ignores %s", (search) => {
-    expect(parseView(search)).toEqual({ range: "all" });
+    expect(parseView(search)).toEqual({ range: "30d" });
   });
 });
 
@@ -22,7 +26,8 @@ describe("viewUrl", () => {
   });
 
   it("leaves defaults out of the address", () => {
-    expect(viewUrl({ range: "all" })).toBe(location.pathname);
+    expect(viewUrl({ range: "30d" })).toBe(location.pathname);
+    expect(viewUrl({ range: "all" })).toBe("?range=all");
   });
 });
 

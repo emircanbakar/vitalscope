@@ -111,7 +111,7 @@ describe("App", () => {
   it("opens on production when it exists", async () => {
     await show();
     expect(select("Environment").value).toBe("production");
-    expect(requested()).toContain("/api/overview?env=production");
+    expect(requested()).toContain("/api/overview?env=production&range=30d");
     expect(container.querySelector(".warning")).toBeNull();
   });
 
@@ -159,7 +159,7 @@ describe("App", () => {
     await show();
     await choose(select("Device"), "mobile");
     expect(location.search).toBe("?device=mobile");
-    expect(requested().at(-1)).toBe("/api/overview?env=production&device=mobile");
+    expect(requested().at(-1)).toBe("/api/overview?env=production&device=mobile&range=30d");
     await choose(select("Range"), "7d");
     expect(location.search).toBe("?device=mobile&range=7d");
     await choose(select("Environment"), "development");
@@ -192,7 +192,7 @@ describe("App", () => {
 
   it("opens from a shared address", async () => {
     await show("/?metric=LCP&env=development&device=mobile");
-    expect(requested()).toContain("/api/metrics/LCP?env=development&device=mobile");
+    expect(requested()).toContain("/api/metrics/LCP?env=development&device=mobile&range=30d");
     expect(link("LCP").getAttribute("aria-current")).toBe("page");
   });
 
