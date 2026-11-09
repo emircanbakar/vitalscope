@@ -7,7 +7,8 @@ import { createHash } from "node:crypto";
 import { appendFileSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-const PACKAGES = ["packages/protocol", "packages/sdk"];
+// Sıra önemli: CLI, yayınlanmış protokol sürümüne bağlıdır.
+const PACKAGES = ["packages/protocol", "packages/sdk", "packages/cli"];
 /** Trusted publishing için gereken en düşük npm sürümü. */
 const MIN_NPM = [11, 5, 1];
 

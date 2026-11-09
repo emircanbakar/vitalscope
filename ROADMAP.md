@@ -45,8 +45,9 @@ Kurallar: her adım ayrı branch ve PR, CI yeşil olmadan merge yok, PR'lar squa
 | #39 | Hatalar ve release'ler | Panelde hata listesi ve detayı: son stack, zaman içinde görülme (boş süreler sıfır), sayfa, cihaz ve release kırılımı. `vitalscope report` ile aynı gruplama, sayılar tutar. İki release karşılaştırması: metrik başına p75 ve değişim, yeni çıkan ve görülmeyen hatalar. 5 ölçümün altında, %5'in altında ya da 20 ms / 0,01 CLS altındaki farkta hüküm verilmez. README'de `release` anlatılır. Gerçek SDK hatalarıyla, 3 tarayıcının verisi ve zararlı mesajla denendi |
 | #40 | Canlı görünüm | Toplayıcı veriyi yazınca `/api/live` (SSE) "değişti" der, veri taşımaz; panel normal API'den çeker, en sık 2 sn'de bir. Sayfa soluklaşmaz, açık tablo ve kaydırma korunur; boş panel ilk ölçümle kendiliğinden dolar. Tarayıcının 6 bağlantı sınırı SDK'yı da kilitleyeceği için akışı Web Locks ile tek sekme tutar, diğerlerine `BroadcastChannel` ile haber verir, sekme kapanınca sıradaki devralır (12 sekmeyle denendi). Sayfadan çıkıştan panele ≈ 1,3 sn. Akışlar kapanışta kapatılır, Ctrl+C beklemez |
 | #41 | Kalite | Büyük dosya: 1 milyon olayda (≈ bir yıllık yoğun kullanım) her panel sorgusu ve rapor < 0,35 sn (önce 2,7 sn'ye kadar). Yeniden gönderilen metrik yazılırken eskisinin üstüne yazılır, sorgular ayıklamaz; genel bakış yüzdelikleri index'te sıra atlayarak bulur, satırları JS'e taşımaz; çok satır okuyan sorgular satırları dizi olarak ve değere göre sıralı alır. Panel son 30 günle açılır. Bedel: dosya ≈ %50 büyür (1 milyon olayda 195 MB), 50 olaylık yazma ≈ 3 ms. `pnpm seed` ve CI'da 100 bin olayda sorgu bütçesi testi (sorgu başına 500 ms). Panel E2E (3 tarayıcı, gerçek CLI ve SDK): canlı dolma, zararlı metnin düz metin kalması (kontrol deneyiyle doğrulandı), axe (WCAG 2.2 AA, açık ve koyu tema, her görünüm). axe'ın bulduğu hata düzeltildi: değerlendirme çubuğunda yeşil üstünde beyaz yazı 3,35:1 idi |
+| #42 | Yayın hazırlığı | `@vitalscope/cli` yayınlanabilir: `private` kalktı, paket sadece JS, kaynak haritası ve panel (110 kB sıkıştırılmış, tip dosyası yok), bağımlılıklar `hono`, `@hono/node-server`, `@vitalscope/protocol`; build önce `dist`'i siler. Paket dosya listesi testi, yayın betiğinde CLI (protokolden sonra), `0.1.0` changeset'i. Paketten açılan CLI ile toplayıcı, panel ve rapor denendi. Kök README: hızlı başlangıç, açık ve koyu temada panel görüntüleri (örnek veriyle), terminal raporu, web-vitals ile uyum, ölçüm maliyeti, tarayıcı desteği tablosu (CLS sadece Chromium; az detaylı görseller LCP sayılmaz), gizlilik, sınırlar. CLI README'si; SDK README'si CLI kurulumunu anlatır |
 
-Durum: 635 birim testi (protokol 53, SDK 173, CLI 273, grafik 57, panel 79; `SIGTERM` testi Windows'ta atlanır) + 57 e2e testi (19 senaryo × 3 tarayıcı; 54 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut (`size-limit`, minify + gzip, bağımlılıklar dahil) ve bütçe: çekirdek 4,83 / 5 kB, attribution 5,67 / 5,8 kB, `/react` 4,74 / 4,9 kB, `/next` 4,98 / 5,15 kB, IIFE 4,91 / 5,1 kB.
+Durum: 639 birim testi (protokol 53, SDK 173, CLI 277, grafik 57, panel 79; `SIGTERM` testi Windows'ta atlanır) + 57 e2e testi (19 senaryo × 3 tarayıcı; 54 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut (`size-limit`, minify + gzip, bağımlılıklar dahil) ve bütçe: çekirdek 4,83 / 5 kB, attribution 5,67 / 5,8 kB, `/react` 4,74 / 4,9 kB, `/next` 4,98 / 5,15 kB, IIFE 4,91 / 5,1 kB.
 
 **Boyut bütçesi kararı (#16):** dokümandaki çekirdek < 3 KB ve attribution < 5 KB tutmuyor. Çekirdeği 3 KB'a indirmek için yaklaşık üçte birini (hata yakalama, SPA takibi gibi) ayrı giriş noktalarına taşımak gerekirdi. Bunun yerine bütçeler ölçülen boyutun ≈ %5 üstüne kondu; CI büyümeyi engeller. Not: playground'da attribution sayfası ayrı build edilir; aynı build'de SDK ortak bir parçaya taşınıyor ve `init` sıcak açılışta ≈ 0,2 ms (4× yavaşlatmada) yavaşlıyordu. SDK'yı ayrı bir chunk'a koyan sitelerde de benzer bir fark beklenebilir.
 
@@ -54,7 +55,7 @@ Durum: 635 birim testi (protokol 53, SDK 173, CLI 273, grafik 57, panel 79; `SIG
 
 Sırayla:
 
-- [ ] **Yayın:** CLI paketi için npm hazırlığı, kök README, tanıtım görselleri. Changesets'in sürüm PR'ı CLI ile birlikte merge edilmeli: SDK'nın yeni README'si henüz npm'de olmayan toplayıcıyı anlatıyor
+- [ ] **Yayın:** önce `@vitalscope/cli` için npm yer tutucusu ve trusted publisher (elle), sonra Changesets'in sürüm PR'ının merge'ü: SDK `0.2.0` ve CLI `0.1.0` birlikte çıkar. Yayından sonra npm'den gerçek kurulum denenmeli
 - [ ] **Dogfooding ve case study:** enflasyon uygulaması ve ecbakar.com'da yerel kullanım, ecbakar.com yazısı
 
 ### Karar bekleyen fikirler
@@ -84,7 +85,7 @@ PR #11'deki e2e senaryolarından çıkanlar ve PR #13'teki çözümleri. Hedef: 
 
 - [x] Sahte ingest sunucusu ile e2e yakalaması (#13)
 - [x] bfcache: Chromium'da gerçek doğrulama; `unload` dinlenmediğine dair birim testi zaten vardı (#13)
-- [ ] README'ye tarayıcı desteği tablosu (CLS, LCP entropi kuralı)
+- [x] README'ye tarayıcı desteği tablosu (CLS, LCP entropi kuralı)
 - [x] Firefox'ta `page.close()` sırasında kaybolan batch: Playwright kesintisi, kanıtlı atlama (#15)
 
 ## Ertelenen işler
@@ -104,7 +105,7 @@ PR #11'deki e2e senaryolarından çıkanlar ve PR #13'teki çözümleri. Hedef: 
 - [x] `SECURITY.md`: bildirim adresi ecbakar.dev@gmail.com, ilk yanıt 72 saat; npm paketlerinde de var. Repo public olunca GitHub private vulnerability reporting eklenebilir
 - [x] CI'da `pnpm audit --prod` (boş `dependencies` ve `npm pack` dosya listesi testlerde)
 - [x] Kapsam eşikleri (satır): SDK ≥ %95 (şu an %99,55), `transport.ts` ve `privacy.ts` %100. `iife.ts` build çıktısı üzerinden test edilir, ölçüme girmez
-- [ ] Kök README ve tam dokümantasyon (paket README'leri #17'de kısa haliyle var; yerel kurulum adımları, referans kütüphaneyle uyum tablosu, tarayıcı desteği)
+- [x] Kök README ve tam dokümantasyon (paket README'leri #17'de kısa haliyle var; yerel kurulum adımları, referans kütüphaneyle uyum tablosu, tarayıcı desteği)
 
 ## Elle yapılacaklar
 

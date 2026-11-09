@@ -1,17 +1,29 @@
 {
   "name": "@vitalscope/cli",
   "version": "0.0.0",
-  "private": true,
+  "description": "Local Core Web Vitals and error panel for development: collects what @vitalscope/sdk measures, with no server, account or Docker",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/emircanbakar/vitalscope.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/emircanbakar/vitalscope/tree/main/packages/cli#readme",
+  "bugs": "https://github.com/emircanbakar/vitalscope/issues",
   "license": "MIT",
   "type": "module",
   "bin": {
     "vitalscope": "./dist/cli.js"
   },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "SECURITY.md"
+  ],
   "engines": {
     "node": ">=24.15.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && node scripts/copy-panel.mjs",
+    "build": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.build.json && node scripts/copy-panel.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "seed": "node scripts/seed.mjs"
@@ -26,5 +38,8 @@
     "@vitalscope/panel": "workspace:*",
     "typescript": "6.0.3",
     "vitest": "5.0.5"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

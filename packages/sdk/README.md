@@ -7,10 +7,10 @@ Vitalscope is a local tool: it shows what your browser measures, not what real u
 ## Install
 
 ```bash
-npm install --save-dev @vitalscope/sdk
+npm install --save-dev @vitalscope/sdk @vitalscope/cli
 ```
 
-Load it only in development, then start your app and the local collector:
+[`@vitalscope/cli`](https://www.npmjs.com/package/@vitalscope/cli) is the local collector and panel. Load the SDK only in development, then start your app and the collector with `npx vitalscope dev`:
 
 ```ts
 if (import.meta.env.DEV) {
