@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { createEventBuffer } from "../src/buffer.js";
+import { createLive } from "../src/live.js";
 import { getComparison, getErrorDetail, getErrorGroups, getErrorList, getOptions, getReleases, type ErrorDetail, type ErrorList, type Filters } from "../src/queries.js";
 import { openStore, type Store } from "../src/sqlite.js";
 import type { StoredEvent } from "../src/types.js";
@@ -179,7 +180,7 @@ describe("getComparison", () => {
 describe("routes", () => {
   async function setup(events: StoredEvent[]) {
     const db = await dbWith(events);
-    const app = createApp({ buffer: createEventBuffer(fakeSink().sink), now: () => NOW, panel: { db, assets: new Map() } });
+    const app = createApp({ buffer: createEventBuffer(fakeSink().sink), now: () => NOW, panel: { db, assets: new Map(), live: createLive() } });
     return (url: string, headers: Record<string, string> = {}) => app.request(url, { headers: { Host: "localhost:8787", ...headers } });
   }
 

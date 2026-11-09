@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { createEventBuffer } from "../src/buffer.js";
+import { createLive } from "../src/live.js";
 import { loadPanelAssets, type PanelAssets } from "../src/panel.js";
 import type { MetricDetail, Overview } from "../src/queries.js";
 import { openStore, type Store } from "../src/sqlite.js";
@@ -38,7 +39,7 @@ async function setup() {
     { receivedAt: NOW, sdk: "0.1.1", ctx, event: { t: "vital", ts: NOW - 7_200_000, name: "LCP", value: 9000, rating: "poor", id: "b" } },
     { receivedAt: NOW, sdk: "0.1.1", ctx, event: { t: "pageview", ts: NOW } },
   ]);
-  const app = createApp({ buffer: createEventBuffer(fakeSink().sink), now: () => NOW, panel: { db: store.db, assets: ASSETS } });
+  const app = createApp({ buffer: createEventBuffer(fakeSink().sink), now: () => NOW, panel: { db: store.db, assets: ASSETS, live: createLive() } });
   return (url: string, headers: Record<string, string> = {}) => app.request(url, { headers: { Host: HOST, ...headers } });
 }
 

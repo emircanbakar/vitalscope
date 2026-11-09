@@ -4,6 +4,7 @@ import { Batch } from "@vitalscope/protocol/schema";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import type { EventBuffer } from "./buffer.js";
+import type { Live } from "./live.js";
 import { isAllowedOrigin, isLocalHost } from "./origin.js";
 import { addPanelRoutes, type PanelAssets } from "./panel.js";
 import type { StoredEvent } from "./types.js";
@@ -17,7 +18,7 @@ export interface AppOptions {
   buffer: EventBuffer;
   now?: () => number;
   /** Verilirse panel ve okuma API'si de sunulur. */
-  panel?: { db: DatabaseSync; assets: PanelAssets };
+  panel?: { db: DatabaseSync; assets: PanelAssets; live: Live };
 }
 
 /** Yanıtların hepsi boş gövdelidir; hata detayı istemciye dönmez. */

@@ -23,7 +23,9 @@ export function useWidth(): [(element: HTMLDivElement | null) => void, number] {
 
 /** Fare ve klavye aynı seçili noktayı kullanır: üzerine gelmekle odaklanmak aynı bilgiyi gösterir. */
 export function useActiveIndex(count: number) {
-  const [active, setActive] = useState<number | null>(null);
+  const [selected, setActive] = useState<number | null>(null);
+  // Veri yenilenip küçülürse seçili nokta dizinin dışında kalabilir.
+  const active = selected !== null && selected < count ? selected : null;
 
   function onKeyDown(event: KeyboardEvent) {
     const last = count - 1;

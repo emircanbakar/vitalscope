@@ -2,6 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/app.js";
+import { stubLive } from "./live-stubs.js";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -40,6 +41,7 @@ beforeEach(() => {
   responses = { "/api/options": OPTIONS, "/api/overview": OVERVIEW, "/api/metrics/LCP": DETAIL, "/api/metrics/CLS": { ...DETAIL, summary: summary("CLS", 0.05), histogram: { ...DETAIL.histogram, above: 0 } } };
   fetchMock = vi.fn((url: string) => respond(url));
   vi.stubGlobal("fetch", fetchMock);
+  stubLive();
   vi.stubGlobal(
     "ResizeObserver",
     class {
