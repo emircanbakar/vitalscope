@@ -55,7 +55,7 @@ Durum: 639 birim testi (protokol 53, SDK 173, CLI 277, grafik 57, panel 79; `SIG
 
 Sırayla:
 
-- [ ] **Yayın:** önce `@vitalscope/cli` için npm yer tutucusu ve trusted publisher (elle), sonra Changesets'in sürüm PR'ının merge'ü: SDK `0.2.0` ve CLI `0.1.0` birlikte çıkar. Yayından sonra npm'den gerçek kurulum denenmeli
+- [ ] **Yayın:** Changesets'in sürüm PR'ının merge'ü, **12 Kasım 07:35 UTC'den önce**: SDK `0.2.0` ve CLI `0.1.0` birlikte çıkar. CLI'ın trusted publisher'ı ilk yayınla doğrulanır; süre geçerse silinip yeniden kurulmalı. Yayından sonra npm'den gerçek kurulum denenmeli
 - [ ] **Dogfooding ve case study:** enflasyon uygulaması ve ecbakar.com'da yerel kullanım, ecbakar.com yazısı
 
 ### Karar bekleyen fikirler
@@ -112,10 +112,10 @@ PR #11'deki e2e senaryolarından çıkanlar ve PR #13'teki çözümleri. Hedef: 
 - [ ] GitHub güvenlik ayarları: secret scanning, push protection, branch protection
 - [x] npm: `@vitalscope` organizasyonu ve iki paket için `0.0.0` yer tutucu (3 Kasım, Mac'ten; iş ağında proxy TLS incelemesi ve passkey'in telefonla onayı engelliyor)
 - [x] npm: her pakete trusted publisher (`emircanbakar` / `vitalscope` / `release.yml` / ortam `npm`, Allowed actions: `npm publish`)
-- [x] npm: iki pakette de "Require two-factor authentication and disallow tokens" (senin onayınla; dışarıdan okunamadığı için doğrulanmadı)
+- [x] npm: üç pakette de "Require two-factor authentication and disallow bypass 2fa tokens" (10 Kasım'da npm ayar sayfalarında doğrulandı; protokolde gevşek kalmıştı, düzeltildi)
 - [x] GitHub: "Allow GitHub Actions to create and approve pull requests" (3 Kasım)
 - [x] GitHub: `npm` ortamında dağıtım dalı sadece `main`. Repo private olduğu için ortam onaylayıcısı kurulamıyor ve npm provenance üretmiyor; yayının kontrol noktası sürüm PR'ının merge'ü
-- [ ] npm: `@vitalscope/cli` için yer tutucu ve trusted publisher (Yayın adımından önce; ad 5 Kasım'da boştu)
+- [x] npm: `@vitalscope/cli` için yer tutucu (`0.0.0-stage`, 10 Kasım, Mac'ten) ve trusted publisher (SDK ile aynı ayarlar; ilk yayına kadar "Pending validation")
 
 ## Açık sorular
 
