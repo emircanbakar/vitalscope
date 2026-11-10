@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Only the latest published version of `@vitalscope/sdk` and `@vitalscope/protocol` receives security fixes.
+Only the latest published version of `@vitalscope/sdk`, `@vitalscope/protocol` and `@vitalscope/cli` receives security fixes.
 
 ## Reporting a vulnerability
 
