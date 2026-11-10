@@ -46,6 +46,7 @@ Kurallar: her adım ayrı branch ve PR, CI yeşil olmadan merge yok, PR'lar squa
 | #40 | Canlı görünüm | Toplayıcı veriyi yazınca `/api/live` (SSE) "değişti" der, veri taşımaz; panel normal API'den çeker, en sık 2 sn'de bir. Sayfa soluklaşmaz, açık tablo ve kaydırma korunur; boş panel ilk ölçümle kendiliğinden dolar. Tarayıcının 6 bağlantı sınırı SDK'yı da kilitleyeceği için akışı Web Locks ile tek sekme tutar, diğerlerine `BroadcastChannel` ile haber verir, sekme kapanınca sıradaki devralır (12 sekmeyle denendi). Sayfadan çıkıştan panele ≈ 1,3 sn. Akışlar kapanışta kapatılır, Ctrl+C beklemez |
 | #41 | Kalite | Büyük dosya: 1 milyon olayda (≈ bir yıllık yoğun kullanım) her panel sorgusu ve rapor < 0,35 sn (önce 2,7 sn'ye kadar). Yeniden gönderilen metrik yazılırken eskisinin üstüne yazılır, sorgular ayıklamaz; genel bakış yüzdelikleri index'te sıra atlayarak bulur, satırları JS'e taşımaz; çok satır okuyan sorgular satırları dizi olarak ve değere göre sıralı alır. Panel son 30 günle açılır. Bedel: dosya ≈ %50 büyür (1 milyon olayda 195 MB), 50 olaylık yazma ≈ 3 ms. `pnpm seed` ve CI'da 100 bin olayda sorgu bütçesi testi (sorgu başına 500 ms). Panel E2E (3 tarayıcı, gerçek CLI ve SDK): canlı dolma, zararlı metnin düz metin kalması (kontrol deneyiyle doğrulandı), axe (WCAG 2.2 AA, açık ve koyu tema, her görünüm). axe'ın bulduğu hata düzeltildi: değerlendirme çubuğunda yeşil üstünde beyaz yazı 3,35:1 idi |
 | #42 | Yayın hazırlığı | `@vitalscope/cli` yayınlanabilir: `private` kalktı, paket sadece JS, kaynak haritası ve panel (110 kB sıkıştırılmış, tip dosyası yok), bağımlılıklar `hono`, `@hono/node-server`, `@vitalscope/protocol`; build önce `dist`'i siler. Paket dosya listesi testi, yayın betiğinde CLI (protokolden sonra), `0.1.0` changeset'i. Paketten açılan CLI ile toplayıcı, panel ve rapor denendi. Kök README: hızlı başlangıç, açık ve koyu temada panel görüntüleri (örnek veriyle), terminal raporu, web-vitals ile uyum, ölçüm maliyeti, tarayıcı desteği tablosu (CLS sadece Chromium; az detaylı görseller LCP sayılmaz), gizlilik, sınırlar. CLI README'si; SDK README'si CLI kurulumunu anlatır |
+| #35 | Yayın: SDK `0.2.0`, CLI `0.1.0` | 10 Kasım'da GitHub Actions'tan trusted publishing ile npm'e çıktı; CLI'ın trusted publisher'ı bu yayınla doğrulandı. npm'de CLI 40 dosya, 372 kB; bağımlılıklar `hono`, `@hono/node-server`, `@vitalscope/protocol@0.1.1`. npm yeni sürümleri birkaç dakika işledikten sonra gösteriyor. #42, repoda zorunlu kontrol olmadığı için CI bitmeden merge oldu (sonra main'in CI'ı geçti); branch protection açılınca bu olmaz |
 
 Durum: 639 birim testi (protokol 53, SDK 173, CLI 277, grafik 57, panel 79; `SIGTERM` testi Windows'ta atlanır) + 57 e2e testi (19 senaryo × 3 tarayıcı; 54 geçer, 3 kontrol deneyiyle atlanır; Firefox kapanış testi de olay eksik ve kesinti kanıtlıysa ara sıra atlanır) + 3 performans testi (Chromium). Boyut (`size-limit`, minify + gzip, bağımlılıklar dahil) ve bütçe: çekirdek 4,83 / 5 kB, attribution 5,67 / 5,8 kB, `/react` 4,74 / 4,9 kB, `/next` 4,98 / 5,15 kB, IIFE 4,91 / 5,1 kB.
 
@@ -55,8 +56,7 @@ Durum: 639 birim testi (protokol 53, SDK 173, CLI 277, grafik 57, panel 79; `SIG
 
 Sırayla:
 
-- [ ] **Yayın:** Changesets'in sürüm PR'ının merge'ü, **12 Kasım 07:35 UTC'den önce**: SDK `0.2.0` ve CLI `0.1.0` birlikte çıkar. CLI'ın trusted publisher'ı ilk yayınla doğrulanır; süre geçerse silinip yeniden kurulmalı. Yayından sonra npm'den gerçek kurulum denenmeli
-- [ ] **Dogfooding ve case study:** enflasyon uygulaması ve ecbakar.com'da yerel kullanım, ecbakar.com yazısı
+- [ ] **Dogfooding ve case study:** önce boş bir projede npm'den kurulum (`npx @vitalscope/cli@0.1.0 dev`; iş bilgisayarında kurumsal kayıt defteri engelliyor), sonra enflasyon uygulaması ve ecbakar.com'da yerel kullanım, ecbakar.com yazısı
 
 ### Karar bekleyen fikirler
 
@@ -109,7 +109,7 @@ PR #11'deki e2e senaryolarından çıkanlar ve PR #13'teki çözümleri. Hedef: 
 
 ## Elle yapılacaklar
 
-- [ ] GitHub güvenlik ayarları: secret scanning, push protection, branch protection
+- [ ] GitHub güvenlik ayarları: secret scanning, push protection, branch protection (`main` için zorunlu kontroller: `check`, `e2e`, `gitleaks`)
 - [x] npm: `@vitalscope` organizasyonu ve iki paket için `0.0.0` yer tutucu (3 Kasım, Mac'ten; iş ağında proxy TLS incelemesi ve passkey'in telefonla onayı engelliyor)
 - [x] npm: her pakete trusted publisher (`emircanbakar` / `vitalscope` / `release.yml` / ortam `npm`, Allowed actions: `npm publish`)
 - [x] npm: üç pakette de "Require two-factor authentication and disallow bypass 2fa tokens" (10 Kasım'da npm ayar sayfalarında doğrulandı; protokolde gevşek kalmıştı, düzeltildi)
