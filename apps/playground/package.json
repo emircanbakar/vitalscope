@@ -13,13 +13,13 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",
-    "@playwright/test": "1.64.1",
+    "@playwright/test": "1.65.0",
     "@types/node": "24.19.2",
     "@vitalscope/cli": "workspace:*",
     "@vitalscope/protocol": "workspace:*",
     "@vitalscope/sdk": "workspace:*",
     "typescript": "6.0.3",
-    "vite": "8.3.5",
+    "vite": "8.3.6",
     "web-vitals": "6.2.3"
   }
 }
