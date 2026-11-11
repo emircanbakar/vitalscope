@@ -1,5 +1,7 @@
 # Vitalscope
 
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/emircanbakar/vitalscope/badge)](https://scorecard.dev/viewer/?uri=github.com/emircanbakar/vitalscope)
+
 Core Web Vitals and JavaScript errors from your own browser, while you develop. Vitalscope measures LCP, INP, CLS, FCP and TTFB on your pages and stores them in a SQLite file in your project. You see them in a local panel or in your terminal. There is no server, account or Docker, and nothing leaves your machine.
 
 <picture>
