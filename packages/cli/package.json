@@ -1,6 +1,6 @@
 {
   "name": "@vitalscope/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local Core Web Vitals and error panel for development: collects what @vitalscope/sdk measures, with no server, account or Docker",
   "repository": {
     "type": "git",
