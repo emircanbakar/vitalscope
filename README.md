@@ -124,8 +124,6 @@ pnpm test
 pnpm --filter @vitalscope/playground test:e2e   # Playwright, three browsers
 ```
 
-[ROADMAP.md](ROADMAP.md) lists what is done and what is next (in Turkish).
-
 ## License
 
 [MIT](LICENSE)
