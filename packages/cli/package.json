@@ -29,9 +29,9 @@
     "seed": "node scripts/seed.mjs"
   },
   "dependencies": {
-    "@hono/node-server": "2.1.5",
+    "@hono/node-server": "2.1.6",
     "@vitalscope/protocol": "workspace:*",
-    "hono": "4.13.16"
+    "hono": "4.13.17"
   },
   "devDependencies": {
     "@types/node": "24.19.2",
