@@ -37,6 +37,36 @@ describe("scrubPath", () => {
   });
 });
 
+// CodeQL js/polynomial-redos: e-posta regex'i uzun girdilerde karesel yavaşlıyordu.
+describe("email scrubbing on long input", () => {
+  // Önceki tek regex; yeni yolun aynı sonucu verdiği bununla karşılaştırılır.
+  const OLD_EMAIL = /[\w.!#$%&'*+=?^`{|}~-]*@[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}/gi;
+
+  it.each(["!", "a", "a.", "@a", "@a.b"])("stays fast on 200k repetitions of %j", (unit) => {
+    const input = `/${unit.repeat(200_000)}`;
+    const started = performance.now();
+    scrubPath(input);
+    scrubText(input);
+    expect(performance.now() - started).toBeLessThan(500);
+  });
+
+  it("matches the previous single regex", () => {
+    const chunk = fc.constantFrom("a", "B", "1", ".", "!", "+", "-", "_", "@", "/", " ", "co", "x.io", "@a.co", "é");
+    fc.assert(
+      fc.property(fc.array(chunk, { maxLength: 30 }).map((parts) => parts.join("")), (text) => {
+        expect(scrubPath(text)).toBe(
+          text
+            .replace(OLD_EMAIL, "[email]")
+            .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "[uuid]")
+            .replace(/eyJ[\w-]{4,}(?:\.[\w-]*)*/g, REDACTED)
+            .replace(/\d{9,}/g, "[number]"),
+        );
+      }),
+      { numRuns: 2000 },
+    );
+  });
+});
+
 // Property testleri: rastgele metinlerin arasına gizli veri gömülür, çıktıda hiçbiri kalmamalı.
 const filler = fc.string({ maxLength: 40 });
 const secret = fc.oneof(
