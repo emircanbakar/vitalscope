@@ -1,5 +1,12 @@
 # @vitalscope/cli
 
+## 0.1.1
+
+### Patch Changes
+
+- Updated dependencies [d7af146]
+  - @vitalscope/protocol@0.1.2
+
 ## 0.1.0
 
 ### Minor Changes
