@@ -44,6 +44,8 @@ The panel is at `http://localhost:8787`. For React, Next.js and the script tag, 
   <img alt="LCP detail: rating split and p50, p75 and p95 over three weeks, rising in the last days" src="docs/images/metric-light.png">
 </picture>
 
+**The slowest interactions,** on the INP page: the element, the event and where the time went (input delay, processing, presentation). In a long session INP leaves out the slowest interaction by definition; the list still shows it. Element and timings need `@vitalscope/sdk/attribution`.
+
 **Two releases side by side.** Pass a `release`, such as a commit hash, and see which metric got slower and which errors are new. Below 5 measurements, or when the difference is too small, the panel gives no verdict.
 
 <picture>

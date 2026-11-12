@@ -9,8 +9,9 @@ function eventTime(ts: number, receivedAt: number) {
   return ts >= receivedAt - MAX_EVENT_AGE_MS && ts <= receivedAt + MAX_CLOCK_SKEW_MS ? ts : receivedAt;
 }
 
-function timings({ ttfb, loadDelay, loadTime, renderDelay, inputDelay, processing, presentation, time }: Attribution) {
-  const all = { ttfb, loadDelay, loadTime, renderDelay, inputDelay, processing, presentation, time };
+/** Sütunu olmayan attribution alanları; INP'nin atladığı en yavaş etkileşim de burada saklanır. */
+function details({ ttfb, loadDelay, loadTime, renderDelay, event, inputDelay, processing, presentation, slowest, time }: Attribution) {
+  const all = { ttfb, loadDelay, loadTime, renderDelay, event, inputDelay, processing, presentation, slowest, time };
   return Object.fromEntries(Object.entries(all).filter(([, value]) => value !== undefined));
 }
 
@@ -46,7 +47,7 @@ export function toRows(events: readonly StoredEvent[]): Rows {
           attr_url: event.attr?.url,
           attr_script: event.attr?.script,
           attr_type: event.attr?.type,
-          attr: event.attr ? JSON.stringify(timings(event.attr)) : undefined,
+          attr: event.attr ? JSON.stringify(details(event.attr)) : undefined,
         });
         break;
       case "error":

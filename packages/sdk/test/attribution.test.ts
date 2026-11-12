@@ -129,6 +129,7 @@ describe("attribution", () => {
     expect(attrOf("INP")).toEqual({
       target: "button#buy",
       type: "pointer",
+      event: "click",
       inputDelay: 50,
       processing: 250,
       presentation: 100,
@@ -149,7 +150,7 @@ describe("attribution", () => {
     ]);
     setVisibility("hidden");
 
-    expect(attrOf("INP")).toEqual({ target: "button#buy", type: "pointer", inputDelay: 10, processing: 162, presentation: 28 });
+    expect(attrOf("INP")).toEqual({ target: "button#buy", type: "pointer", event: "pointerdown", inputDelay: 10, processing: 162, presentation: 28 });
   });
 
   it("leaves out events that ended in an earlier frame", async () => {
@@ -168,6 +169,52 @@ describe("attribution", () => {
     expect(inp?.attr).toMatchObject({ inputDelay: 2, processing: 150, presentation: 8 });
     const { inputDelay = 0, processing = 0, presentation = 0 } = inp?.attr ?? {};
     expect(inputDelay + processing + presentation).toBe(inp?.value);
+  });
+
+  // 60 etkileşim: INP en yavaşını atlar (≈ p98); atlanan etkileşim `slowest` olarak gelir.
+  const manyInteractions = (slowDuration: number) => [
+    { name: "keydown", interactionId: 1, startTime: 1000, processingStart: 1001, processingEnd: 1031, duration: slowDuration, target: document.getElementById("canvas") },
+    ...Array.from({ length: 59 }, (_, i) => ({
+      name: "click",
+      interactionId: i + 2,
+      startTime: 2000 + i * 500,
+      processingStart: 2005 + i * 500,
+      processingEnd: 2045 + i * 500,
+      duration: i === 0 ? 120 : 100,
+      target: document.getElementById("buy"),
+    })),
+  ];
+
+  it("adds the slowest interaction when INP skips it", async () => {
+    document.body.innerHTML = '<div id="canvas"></div><button id="buy"></button>';
+    installFakePerformance({ supported: SUPPORTED });
+    await start();
+    emit("event", manyInteractions(500));
+    setVisibility("hidden");
+
+    const inp = vitals().find((v) => v.name === "INP");
+    expect(inp?.value).toBe(120);
+    expect(inp?.attr).toMatchObject({ target: "button#buy", event: "click" });
+    expect(inp?.attr?.slowest).toEqual({ target: "div#canvas", type: "keyboard", event: "keydown", duration: 500, inputDelay: 1, processing: 30, presentation: 469 });
+  });
+
+  it("sends INP again when only the slowest interaction grew", async () => {
+    document.body.innerHTML = '<div id="canvas"></div><button id="buy"></button>';
+    installFakePerformance({ supported: SUPPORTED });
+    await start();
+    emit("event", manyInteractions(500));
+    setVisibility("hidden");
+    setVisibility("visible");
+    // Aynı etkileşimin keyup'ı daha geç biter: INP değişmez, en yavaş etkileşim değişir.
+    emit("event", [{ name: "keyup", interactionId: 1, startTime: 1100, processingStart: 1101, processingEnd: 1102, duration: 600, target: document.getElementById("canvas") }]);
+    setVisibility("hidden");
+
+    const inps = vitals().filter((v) => v.name === "INP");
+    expect(inps.map((v) => [v.value, v.attr?.slowest?.duration])).toEqual([
+      [120, 500],
+      [120, 600],
+    ]);
+    expect(inps[0]?.id).toBe(inps[1]?.id);
   });
 
   it("still sends the metric when attribution fails", async () => {

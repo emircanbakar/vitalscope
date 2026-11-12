@@ -2,7 +2,7 @@ import { LIMITS, scrubPath, type Attribution } from "@vitalscope/protocol";
 import { init as baseInit, type Config } from "./index.js";
 import { getActivationStart, getNavigationEntry } from "./navigation-timing.js";
 import { getSelector } from "./selector.js";
-import { setAttributor, type Attributor, type LayoutShift } from "./vitals.js";
+import { setAttributor, type Attributor, type Interaction, type LayoutShift } from "./vitals.js";
 
 // `@vitalscope/sdk/attribution`: çekirdekle aynı API, metrik olaylarına "neden yavaş" bilgisi (`attr`) eklenir.
 // Çekirdek bu dosyayı içermez; ölçüm kodu aynıdır, sadece ilgili girdi burada yorumlanır.
@@ -33,10 +33,10 @@ function defined(attr: Record<string, string | number | undefined>): Attribution
 }
 
 /** Attribution hatası metriği düşürmez ve sayfaya sızmaz: metrik attribution'sız gönderilir. */
-function guard<T>(fn: (input: T) => Attribution): (input: T) => Attribution | undefined {
-  return (input) => {
+function guard<A extends unknown[]>(fn: (...args: A) => Attribution): (...args: A) => Attribution | undefined {
+  return (...args) => {
     try {
-      return fn(input);
+      return fn(...args);
     } catch {
       return undefined;
     }
@@ -113,25 +113,32 @@ const attributor: Attributor = {
   // Bir etkileşim birden çok olaydan oluşur (pointerdown, pointerup, click). Fazlar, en uzun olayla aynı karede
   // biten olayların birleşimidir (süreler 8 ms'ye yuvarlanır): girdi gecikmesi ilk olaya, işleme ilk işleme
   // başlangıcından son işleme bitişine, sunum o andan sonraki kareye. Önceki karede bitmiş olay (ör. ayrı
-  // işlenen pointerdown) INP'nin parçası değildir.
-  inp: guard((all: PerformanceEventTiming[]) => {
-    const longest = all.reduce((a, b) => (b.duration > a.duration ? b : a));
-    const frameEnd = longest.startTime + longest.duration;
-    const entries = all.filter((e) => Math.abs(e.startTime + e.duration - frameEnd) <= 8);
-    const first = entries.reduce((a, b) => (b.startTime < a.startTime ? b : a));
-    const processingStart = Math.min(...entries.map((e) => e.processingStart));
-    const processingEnd = Math.max(...entries.map((e) => e.processingEnd));
-    const end = Math.max(...entries.map((e) => e.startTime + e.duration));
-    return defined({
-      target: getSelector(entries.find((e) => e.target)?.target),
-      type: first.name.startsWith("key") ? "keyboard" : "pointer",
-      inputDelay: Math.max(processingStart - first.startTime, 0),
-      processing: Math.max(processingEnd - processingStart, 0),
-      presentation: Math.max(end - processingEnd, 0),
-      script: longestScript(first.startTime, end),
-    });
+  // işlenen pointerdown) INP'nin parçası değildir. INP en yavaş etkileşimi atladıysa o da `slowest` olarak eklenir.
+  inp: guard((interaction: Interaction, slowest: Interaction) => {
+    const attr = interactionAttribution(interaction.entries);
+    if (slowest !== interaction) attr.slowest = { ...interactionAttribution(slowest.entries), duration: slowest.duration };
+    return attr;
   }),
 };
+
+function interactionAttribution(all: PerformanceEventTiming[]): Attribution {
+  const longest = all.reduce((a, b) => (b.duration > a.duration ? b : a));
+  const frameEnd = longest.startTime + longest.duration;
+  const entries = all.filter((e) => Math.abs(e.startTime + e.duration - frameEnd) <= 8);
+  const first = entries.reduce((a, b) => (b.startTime < a.startTime ? b : a));
+  const processingStart = Math.min(...entries.map((e) => e.processingStart));
+  const processingEnd = Math.max(...entries.map((e) => e.processingEnd));
+  const end = Math.max(...entries.map((e) => e.startTime + e.duration));
+  return defined({
+    target: getSelector(entries.find((e) => e.target)?.target),
+    type: first.name.startsWith("key") ? "keyboard" : "pointer",
+    event: longest.name,
+    inputDelay: Math.max(processingStart - first.startTime, 0),
+    processing: Math.max(processingEnd - processingStart, 0),
+    presentation: Math.max(end - processingEnd, 0),
+    script: longestScript(first.startTime, end),
+  });
+}
 
 /** Çekirdekteki `init` ile aynı; metrik olaylarına attribution eklenir. */
 export const init = (config?: Config): void => {

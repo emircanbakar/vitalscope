@@ -22,6 +22,18 @@ const METRICS = [
  * Sayfa açılışları: pageview, beş metrik (INP her sayfada yok, LCP ve CLS büyüdükçe yeniden gönderilir), %5'inde hata.
  * Değerler log-normal, sayfa ve cihazlar eşit dağılmaz. Aynı ayarlar aynı olayları üretir.
  */
+const TARGETS = ["button#buy", "div.app>input.search", "div#canvas", "nav>a.menu"];
+
+/** INP attribution, değerden türetilir: rastgele sayı tüketmez, diğer olaylar değişmez. Üçte birinde INP en yavaşını atlamıştır. */
+function interaction(value: number) {
+  const keyboard = value % 2 === 0;
+  const timings = (duration: number) => ({ inputDelay: Math.round(duration * 0.1), processing: Math.round(duration * 0.3), presentation: duration - Math.round(duration * 0.1) - Math.round(duration * 0.3) });
+  const attr = { target: TARGETS[value % TARGETS.length]!, type: keyboard ? "keyboard" : "pointer", event: keyboard ? "keydown" : "pointerup", ...timings(value) } as const;
+  if (value % 3 !== 0) return attr;
+  const duration = value * 3;
+  return { ...attr, slowest: { target: "div#canvas", type: "keyboard", event: "keydown", duration, ...timings(duration) } as const };
+}
+
 export function* seedEvents(count: number, { days, now }: { days: number; now: number }): Generator<StoredEvent> {
   let state = 42;
   const random = () => (state = (state * 48_271) % 2_147_483_647) / 2_147_483_647;
@@ -38,7 +50,8 @@ export function* seedEvents(count: number, { days, now }: { days: number; now: n
       const sends = name === "LCP" || name === "CLS" ? 1 + Math.floor(random() * 3) : 1;
       for (let i = 0; i < sends; i++) {
         const value = lognormal(median, spread) * (1 + i * 0.2);
-        events.push({ t: "vital", ts: ts + i * 1000, name, value: name === "CLS" ? Number(value.toFixed(4)) : Math.round(value), rating: "good", id: `v1-${name}` });
+        const rounded = name === "CLS" ? Number(value.toFixed(4)) : Math.round(value);
+        events.push({ t: "vital", ts: ts + i * 1000, name, value: rounded, rating: "good", id: `v1-${name}`, ...(name === "INP" && { attr: interaction(rounded) }) });
       }
     }
     if (random() < 0.05) {

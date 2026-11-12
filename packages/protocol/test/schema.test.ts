@@ -69,4 +69,21 @@ describe("Batch", () => {
     expect(Batch.safeParse(vital("a".repeat(LIMITS.maxSelectorLength))).success).toBe(true);
     expect(Batch.safeParse(vital("a".repeat(LIMITS.maxSelectorLength + 1))).success).toBe(false);
   });
+
+  it("accepts an INP's event name and slowest interaction", () => {
+    const body = fixture("valid", "doc-example");
+    const inp = (attr: object) => ({ ...body, e: [{ t: "vital", ts: 1792044001877, name: "INP", value: 120, rating: "good", id: "x", attr }] });
+    const slowest = { duration: 500, target: "div#canvas", type: "keyboard", event: "keydown", inputDelay: 1, processing: 30, presentation: 469 };
+    const parsed = Batch.parse(inp({ event: "click", slowest }));
+    expect(parsed.e[0]).toMatchObject({ attr: { event: "click", slowest } });
+
+    // Olay adı sadece küçük harf; tuş ya da metin taşıyamaz.
+    expect(Batch.safeParse(inp({ event: "keydown Enter" })).success).toBe(false);
+    expect(Batch.safeParse(inp({ event: "a".repeat(LIMITS.maxEventNameLength + 1) })).success).toBe(false);
+    // En yavaş etkileşimin süresi zorunlu; LCP alanları orada atılır.
+    expect(Batch.safeParse(inp({ slowest: { event: "keydown" } })).success).toBe(false);
+    const [stripped] = Batch.parse(inp({ slowest: { duration: 500, url: "https://a.test/" } })).e;
+    expect(stripped).toMatchObject({ attr: { slowest: { duration: 500 } } });
+    expect(stripped?.t === "vital" && stripped.attr?.slowest).not.toHaveProperty("url");
+  });
 });

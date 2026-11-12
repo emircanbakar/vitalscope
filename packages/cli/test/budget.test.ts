@@ -65,6 +65,13 @@ describe(`queries on ${EVENTS.toLocaleString("en")} events`, () => {
     expect(timed(() => getMetricDetail(store.db, "LCP", filters)).ms).toBeLessThan(BUDGET_MS);
   });
 
+  it.each(views)("shows INP and its slowest interactions within budget, %s", (_, filters) => {
+    const { result, ms } = timed(() => getMetricDetail(store.db, "INP", filters));
+    expect(ms).toBeLessThan(BUDGET_MS);
+    expect(result.interactions).toHaveLength(20);
+    expect(result.interactions!.some((row) => !row.inInp)).toBe(true);
+  });
+
   it.each(views)("shows errors within budget, %s", (_, filters) => {
     const { result, ms } = timed(() => getErrorList(store.db, filters));
     expect(ms).toBeLessThan(BUDGET_MS);

@@ -41,6 +41,7 @@ export const LIMITS = {
   maxVitalValue: 600_000,
   maxSelectorLength: 100,
   maxUrlLength: 300,
+  maxEventNameLength: 30,
   maxErrorTypeLength: 100,
   maxErrorMessageLength: 500,
   maxStackFrames: 30,
