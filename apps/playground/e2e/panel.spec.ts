@@ -42,6 +42,16 @@ async function send(page: Page, release: string, path: string, message: string) 
     e: [
       { t: "pageview", ts },
       ...["LCP", "FCP", "TTFB"].map((name, i) => ({ t: "vital", ts, name, value: 900 + i * 300, rating: "good", id: `v4-${ts}-${name}` })),
+      // INP en yavaş etkileşimi atlamış; atlanan etkileşimin seçicisi tarayıcıdan gelen metindir.
+      {
+        t: "vital",
+        ts,
+        name: "INP",
+        value: 120,
+        rating: "good",
+        id: `v4-${ts}-INP`,
+        attr: { target: "button#buy", type: "pointer", event: "click", inputDelay: 4, processing: 80, presentation: 36, slowest: { duration: 640, target: HOSTILE, type: "keyboard", event: "keydown", inputDelay: 2, processing: 30, presentation: 608 } },
+      },
       { t: "error", ts, type: "TypeError", msg: message, handled: false, stack: [`at ${HOSTILE} (${SITE}/${SCRIPT}.js:1:1)`] },
     ],
   };
@@ -86,7 +96,7 @@ test("shows text from the browser as text, never as markup", async ({ page }) =>
   await send(page, "1.0.0", "/safe", "first");
   await send(page, HOSTILE, `/${HOSTILE}`, `${SCRIPT}${HOSTILE}`);
 
-  const views = ["", `?page=${encodeURIComponent(`/${HOSTILE}`)}`, "?tab=errors", `?tab=releases&a=1.0.0&b=${encodeURIComponent(HOSTILE)}`];
+  const views = ["", `?page=${encodeURIComponent(`/${HOSTILE}`)}`, "?metric=INP", "?tab=errors", `?tab=releases&a=1.0.0&b=${encodeURIComponent(HOSTILE)}`];
   for (const search of views) {
     await openPanel(page, search);
     // Seçenek listeleri gizli `<option>` olarak da içerir; görünen bir kopyası aranır.
@@ -124,6 +134,9 @@ test.describe("accessibility", () => {
       await openPanel(page, "?metric=LCP");
       await expect(page.locator(".detail-value")).toBeVisible();
       await check("metric");
+      await openPanel(page, "?metric=INP");
+      await expect(page.getByRole("heading", { name: "Slowest interactions" })).toBeVisible();
+      await check("slowest interactions");
       await openPanel(page, "?tab=errors");
       await page.getByRole("link", { name: "TypeError: second" }).click();
       await expect(page.getByRole("heading", { name: "Latest stack" })).toBeVisible();

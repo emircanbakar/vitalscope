@@ -253,3 +253,36 @@ describe("getMetricDetail", () => {
     expect(devices.map((row) => row.key)).toEqual(["desktop", "mobile"]);
   });
 });
+
+describe("slowest interactions", () => {
+  type Attr = Extract<StoredEvent["event"], { t: "vital" }>["attr"];
+  const inp = (value: number, attr?: Attr, ctx: Ctx = {}, ts = NOW) =>
+    stored({ t: "vital", ts, name: "INP", value, rating: getRating("INP", value), id: `m${nextId++}`, ...(attr && { attr }) }, ctx);
+
+  it("lists each page view's slowest interaction, including those INP skipped", async () => {
+    const db = await dbWith([
+      inp(120, { target: "button#buy", type: "pointer", event: "click", inputDelay: 5, processing: 80, presentation: 35, slowest: { duration: 500, target: "div#canvas", type: "keyboard", event: "keydown", inputDelay: 1, processing: 30, presentation: 469, script: "https://a.test/app.js" } }, { path: "/draw", release: "v2" }, NOW - MINUTE),
+      inp(300, { target: "button#buy", type: "pointer", event: "pointerup", inputDelay: 2, processing: 250, presentation: 48 }, { path: "/shop" }),
+      inp(80),
+      lcp(4000),
+    ]);
+    const { interactions } = getMetricDetail(db, "INP", production);
+    expect(interactions).toEqual([
+      { duration: 500, inInp: false, page: "/draw", ts: NOW - MINUTE, release: "v2", target: "div#canvas", type: "keyboard", event: "keydown", inputDelay: 1, processing: 30, presentation: 469 },
+      { duration: 300, inInp: true, page: "/shop", ts: NOW, release: null, target: "button#buy", type: "pointer", event: "pointerup", inputDelay: 2, processing: 250, presentation: 48 },
+      { duration: 80, inInp: true, page: "/", ts: NOW, release: null },
+    ]);
+  });
+
+  it("follows the filters and keeps the 20 slowest", async () => {
+    const db = await dbWith([...Array.from({ length: 25 }, (_, i) => inp(100 + i, undefined, { path: "/a" })), inp(900, undefined, { path: "/b" })]);
+    const all = getMetricDetail(db, "INP", production).interactions!;
+    expect(all).toHaveLength(20);
+    expect(all.map((row) => row.duration).slice(0, 3)).toEqual([900, 124, 123]);
+    expect(getMetricDetail(db, "INP", { ...production, page: "/b" }).interactions!.map((row) => row.duration)).toEqual([900]);
+  });
+
+  it("is only part of INP", async () => {
+    expect(getMetricDetail(await dbWith([lcp(100)]), "LCP", production)).not.toHaveProperty("interactions");
+  });
+});

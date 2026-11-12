@@ -10,21 +10,28 @@ const Duration = z.number().nonnegative().max(LIMITS.maxVitalValue);
 /** Ham stack satırı; ayrıştırma ve gruplama sunucuda yapılır. */
 export const StackFrame = z.string().max(LIMITS.maxStackFrameLength);
 
-/** "Neden yavaş" bilgisi. Seçiciler metin içeriği taşımaz; süreler ms. */
-export const Attribution = z.object({
+/** Bir etkileşimin "neden yavaş" bilgisi; INP'de ve en yavaş etkileşimde aynı alanlar. */
+const InteractionAttribution = z.object({
   target: z.string().max(LIMITS.maxSelectorLength).optional(),
+  type: z.enum(["pointer", "keyboard"]).optional(),
+  /** Etkileşimin en uzun olayının adı (`keydown`, `pointerup`…); basılan tuş gönderilmez. */
+  event: z.string().regex(/^[a-z]+$/).max(LIMITS.maxEventNameLength).optional(),
+  inputDelay: Duration.optional(),
+  processing: Duration.optional(),
+  presentation: Duration.optional(),
+  script: z.string().max(LIMITS.maxUrlLength).optional(),
+});
+
+/** "Neden yavaş" bilgisi. Seçiciler metin içeriği taşımaz; süreler ms. */
+export const Attribution = InteractionAttribution.extend({
   url: z.string().max(LIMITS.maxUrlLength).optional(),
   // LCP alt parçaları
   ttfb: Duration.optional(),
   loadDelay: Duration.optional(),
   loadTime: Duration.optional(),
   renderDelay: Duration.optional(),
-  // INP
-  type: z.enum(["pointer", "keyboard"]).optional(),
-  inputDelay: Duration.optional(),
-  processing: Duration.optional(),
-  presentation: Duration.optional(),
-  script: z.string().max(LIMITS.maxUrlLength).optional(),
+  // INP, 50'den fazla etkileşimde en yavaşını atlar; atlanan en yavaş etkileşim burada gelir.
+  slowest: InteractionAttribution.extend({ duration: Duration }).optional(),
   // CLS: en büyük kaymanın sayfa yüklenmesinden itibaren zamanı
   time: Duration.optional(),
 });

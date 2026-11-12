@@ -5,6 +5,13 @@ import { getActivationStart, getNavigationEntry } from "./navigation-timing.js";
 
 export type ReportMetric = (name: MetricName, value: number, id: string, attr?: Attribution) => void;
 
+/** Etkileşim başına en uzun süre ve tüm girdileri (pointerdown, pointerup, click…). */
+export interface Interaction {
+  id: number;
+  duration: number;
+  entries: PerformanceEventTiming[];
+}
+
 export interface LayoutShift extends PerformanceEntry {
   value: number;
   hadRecentInput: boolean;
@@ -20,8 +27,8 @@ export interface Attributor {
   lcp(entry: PerformanceEntry): Attribution | undefined;
   /** En büyük CLS penceresindeki en büyük kayma. */
   cls(shift: LayoutShift): Attribution | undefined;
-  /** En kötü etkileşimin tüm girdileri. */
-  inp(entries: PerformanceEventTiming[]): Attribution | undefined;
+  /** INP'nin etkileşimi ve sayfanın en yavaş etkileşimi (INP onu atladıysa ayrıdır). */
+  inp(interaction: Interaction, slowest: Interaction): Attribution | undefined;
 }
 
 let attributor: Attributor | undefined;
@@ -144,10 +151,10 @@ export function startVitals(report: ReportMetric): () => void {
 
   // INP: etkileşim başına en uzun süre; en kötü 10 tutulur, her 50 etkileşimde bir en kötü atlanır.
   // Etkileşimin tüm girdileri (pointerdown, pointerup, click…) attribution için tutulur.
-  let worst: { id: number; duration: number; entries: PerformanceEventTiming[] }[] = [];
+  let worst: Interaction[] = [];
   let seenInteractions = 0;
   let inpId = newId();
-  let inpReported = -1;
+  let inpReported = "";
   const handleEvents = (entries: PerformanceEntry[]) => {
     for (const entry of entries as PerformanceEventTiming[]) {
       if (!entry.interactionId) continue;
@@ -172,9 +179,11 @@ export function startVitals(report: ReportMetric): () => void {
     const interactions = performance.interactionCount || seenInteractions;
     const interaction = worst[Math.min(worst.length - 1, Math.floor(interactions / INP_SKIP_EVERY))]!;
     const value = interaction.duration;
-    if (value === inpReported) return;
-    inpReported = value;
-    report("INP", value, inpId, attributor?.inp(interaction.entries));
+    // En yavaş etkileşim değişince de yeniden gönderilir: INP aynı kalıp atlanan etkileşim değişebilir.
+    const reported = `${value}/${worst[0]!.duration}`;
+    if (reported === inpReported) return;
+    inpReported = reported;
+    report("INP", value, inpId, attributor?.inp(interaction, worst[0]!));
   });
 
   // bfcache'ten dönüşte CLS ve INP yeni bir ölçüm olarak baştan başlar.
@@ -186,7 +195,7 @@ export function startVitals(report: ReportMetric): () => void {
     clsId = newId();
     worst = [];
     seenInteractions = 0;
-    inpReported = -1;
+    inpReported = "";
     inpId = newId();
   });
 

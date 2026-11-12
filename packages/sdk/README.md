@@ -66,7 +66,7 @@ Measure both releases the same way: the same build type, pages and machine. Diff
 | Entry | What it adds |
 | --- | --- |
 | `@vitalscope/sdk` | Metrics, errors, pageviews, SPA route changes |
-| `@vitalscope/sdk/attribution` | Same API; metrics also carry "why slow" data (LCP element and parts, INP target and phases, CLS element) |
+| `@vitalscope/sdk/attribution` | Same API; metrics also carry "why slow" data (LCP element and parts, INP target, event and phases, plus the slowest interaction when INP leaves it out, CLS element) |
 | `@vitalscope/sdk/react` | `<VitalscopeProvider route="/products/[id]">` |
 | `@vitalscope/sdk/next` | `<VitalscopeProvider>` for the App Router; the route template comes from `useParams` |
 

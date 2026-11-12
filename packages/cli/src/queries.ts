@@ -113,6 +113,23 @@ export interface MetricDetail {
   };
   pages: BreakdownRow[];
   devices: BreakdownRow[];
+  /** Sadece INP'de: sayfa görüntülemelerinin en yavaş etkileşimleri, en yavaştan başlayarak. */
+  interactions?: SlowInteraction[];
+}
+
+/** Bir sayfa görüntülemesinin en yavaş etkileşimi; `inInp` yanlışsa INP bu etkileşimi atlamıştır. */
+export interface SlowInteraction {
+  duration: number;
+  inInp: boolean;
+  page: string;
+  ts: number;
+  release: string | null;
+  target?: string;
+  type?: string;
+  event?: string;
+  inputDelay?: number;
+  processing?: number;
+  presentation?: number;
 }
 
 /** Büyük dosyada süre satırları JS'e taşımakta geçer; satırlar nesne yerine dizi olarak gelir. */
@@ -291,6 +308,47 @@ function breakdown(name: MetricName, items: readonly Sample[], key: (item: Sampl
     .slice(0, MAX_ROWS);
 }
 
+const MAX_INTERACTIONS = 20;
+
+interface InteractionRow {
+  page: string;
+  ts: number;
+  release: string | null;
+  value: number;
+  target: string | null;
+  type: string | null;
+  attr: string | null;
+}
+
+type InteractionDetails = Pick<SlowInteraction, "target" | "type" | "event" | "inputDelay" | "processing" | "presentation">;
+
+/**
+ * INP 50'den fazla etkileşimde en yavaşını atlar; SDK atlanan etkileşimi `slowest` olarak gönderir.
+ * Her sayfa görüntülemesinin en yavaş etkileşimi ya o ya da INP'nin kendisidir.
+ */
+function slowInteractions(db: DatabaseSync, filters: Filters): SlowInteraction[] {
+  const { sql, params } = where(filters);
+  const rows = db
+    .prepare(
+      `SELECT COALESCE(route, path) AS page, ts, release, value, attr_target AS target, attr_type AS type, attr FROM vitals
+       WHERE ${sql} AND name = 'INP' ORDER BY COALESCE(json_extract(attr, '$.slowest.duration'), value) DESC, ts DESC LIMIT ?`,
+    )
+    .all(...params, MAX_INTERACTIONS) as unknown as InteractionRow[];
+  return rows.map(({ page, ts, release, value, target, type, attr }) => {
+    const { slowest, event, inputDelay, processing, presentation } = (attr ? JSON.parse(attr) : {}) as InteractionDetails & { slowest?: InteractionDetails & { duration: number } };
+    const common = { page, ts, release };
+    if (slowest) return { duration: slowest.duration, inInp: false, ...common, ...pick(slowest) };
+    return { duration: value, inInp: true, ...common, ...pick({ target, type, event, inputDelay, processing, presentation }) };
+  });
+}
+
+const DETAIL_KEYS = ["target", "type", "event", "inputDelay", "processing", "presentation"];
+
+/** Sadece gösterilen alanlar; boş olanlar atılır. */
+function pick(fields: object): InteractionDetails {
+  return Object.fromEntries(Object.entries(fields).filter(([key, value]) => DETAIL_KEYS.includes(key) && value !== undefined && value !== null));
+}
+
 export function getMetricDetail(db: DatabaseSync, name: MetricName, filters: Filters): MetricDetail {
   const items = samples(db, filters, name);
   const values = valuesOf(items);
@@ -300,6 +358,7 @@ export function getMetricDetail(db: DatabaseSync, name: MetricName, filters: Fil
     histogram: histogram(name, values),
     pages: breakdown(name, items, (item) => item[PAGE]),
     devices: breakdown(name, items, (item) => item[DEVICE]),
+    ...(name === "INP" && { interactions: slowInteractions(db, filters) }),
   };
 }
 

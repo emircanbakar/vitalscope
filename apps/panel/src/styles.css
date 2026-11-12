@@ -369,3 +369,15 @@ button {
 .live-offline {
   color: var(--poor-text);
 }
+
+.interaction-skipped {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.table-section .interaction-target {
+  max-width: 280px;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+}

@@ -284,4 +284,39 @@ describe("App", () => {
       expect(container.querySelector('[role="alert"]')).not.toBeNull();
     });
   });
+
+  describe("slowest interactions", () => {
+    const interaction = { page: "/draw", ts: 1_800_000_000_000, release: "v2", target: "div#canvas", type: "keyboard", event: "keydown", inputDelay: 1, processing: 30, presentation: 469 };
+    const rows = () => [...container.querySelectorAll("section")].find((section) => section.querySelector("h2")?.textContent === "Slowest interactions")?.querySelectorAll("tbody tr");
+
+    it("lists them on INP and marks those INP left out", async () => {
+      responses["/api/metrics/INP"] = {
+        ...DETAIL,
+        summary: summary("INP", 120),
+        interactions: [
+          { duration: 500, inInp: false, ...interaction },
+          { duration: 300, inInp: true, page: HOSTILE, ts: 1_800_000_000_000, release: null, target: "button#buy", type: "pointer", event: "pointerup", inputDelay: 2, processing: 250, presentation: 48 },
+        ],
+      };
+      await show("/?metric=INP");
+      const [first, second] = [...rows()!].map((row) => [...row.children].map((cell) => cell.textContent));
+      expect(first?.slice(0, 8)).toEqual(["500 ms not in INP", "div#canvas", "keydown", "1 ms", "30 ms", "469 ms", "/draw", "v2"]);
+      expect(second?.slice(0, 8)).toEqual(["300 ms", "button#buy", "pointerup", "2 ms", "250 ms", "48 ms", HOSTILE, "-"]);
+      expect(link("/draw").getAttribute("href")).toContain("page=%2Fdraw");
+      expect(container.querySelector("img")).toBeNull();
+      expect(text()).not.toContain("attribution build");
+    });
+
+    it("points to the attribution build when there are no details", async () => {
+      responses["/api/metrics/INP"] = { ...DETAIL, summary: summary("INP", 120), interactions: [{ duration: 120, inInp: true, page: "/", ts: 1_800_000_000_000, release: null }] };
+      await show("/?metric=INP");
+      expect([...rows()![0]!.children].map((cell) => cell.textContent).slice(0, 6)).toEqual(["120 ms", "-", "-", "-", "-", "-"]);
+      expect(text()).toContain("@vitalscope/sdk/attribution");
+    });
+
+    it("is not shown on other metrics", async () => {
+      await show("/?metric=LCP");
+      expect(rows()).toBeUndefined();
+    });
+  });
 });

@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from "react";
 import { Histogram, RatingBar, RatingLegend, TimeSeriesChart } from "@vitalscope/charts";
 import { METRIC_NAMES, THRESHOLDS, getRating, type MetricName } from "@vitalscope/protocol";
-import type { BreakdownRow, MetricDetail, MetricSummary, Options, Overview } from "../../../packages/cli/src/queries.js";
+import type { BreakdownRow, MetricDetail, MetricSummary, Options, Overview, SlowInteraction } from "../../../packages/cli/src/queries.js";
 import { LoadError, NoMatches, RatingText, ViewLink, type Navigate } from "./components.js";
 import { ErrorDetailView, ErrorListView } from "./errors.js";
 import { RANGES, apiQuery, baseView, useView, type Environment, type Range, type ViewState } from "./filters.js";
@@ -210,6 +210,67 @@ function BreakdownTable({ title, name, rows, onSelect }: { title: string; name: 
   );
 }
 
+function SlowInteractionsTable({ rows, view, navigate }: { rows: readonly SlowInteraction[]; view: ViewState; navigate: Navigate }) {
+  const time = FORMATS.INP;
+  const optional = (value: number | undefined) => (value === undefined ? "-" : time(value));
+  return (
+    <section className="table-section">
+      <h2>Slowest interactions</h2>
+      <p className="note">
+        The slowest interaction of each page view. When a page has more than 50 interactions, INP leaves out the slowest one, so it can be missing from the INP value. Those rows say “not in INP”.
+      </p>
+      <div className="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Duration</th>
+              <th scope="col" className="interaction-target">
+                Element
+              </th>
+              <th scope="col">Event</th>
+              <th scope="col">Input delay</th>
+              <th scope="col">Processing</th>
+              <th scope="col">Presentation</th>
+              <th scope="col">Page</th>
+              <th scope="col">Release</th>
+              <th scope="col">Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, index) => (
+              <tr key={index}>
+                <th scope="row">
+                  {time(row.duration)}
+                  {!row.inInp && <span className="interaction-skipped"> not in INP</span>}
+                </th>
+                <td className="interaction-target" title={row.target}>
+                  {row.target ?? "-"}
+                </td>
+                <td>{row.event ?? row.type ?? "-"}</td>
+                <td>{optional(row.inputDelay)}</td>
+                <td>{optional(row.processing)}</td>
+                <td>{optional(row.presentation)}</td>
+                <td>
+                  <ViewLink view={{ ...view, page: row.page }} navigate={navigate}>
+                    {row.page}
+                  </ViewLink>
+                </td>
+                <td>{row.release ?? "-"}</td>
+                <td>{new Date(row.ts).toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {rows.every((row) => row.target === undefined) && (
+        <p className="note">
+          The element, event and timings come from the attribution build: <code>@vitalscope/sdk/attribution</code>.
+        </p>
+      )}
+    </section>
+  );
+}
+
 function MetricView({ name, view, env, navigate }: { name: MetricName; view: ViewState; env: Environment; navigate: Navigate }) {
   const { data, failed, loading } = useData<MetricDetail>(`/api/metrics/${name}?${apiQuery(view, env)}`);
   const series = useMemo(
@@ -241,6 +302,7 @@ function MetricView({ name, view, env, navigate }: { name: MetricName; view: Vie
       <TimeSeriesChart title={`${name} over time`} x={data.series.x} series={series} formatValue={format} />
       <Histogram title={`${name} distribution`} bins={data.histogram.bins} thresholds={THRESHOLDS[name]} percentiles={percentiles} formatValue={format} />
       {data.histogram.above > 0 && <p className="note">{data.histogram.above} slower measurements are off the chart. The ratings and percentiles include them.</p>}
+      {data.interactions && data.interactions.length > 0 && <SlowInteractionsTable rows={data.interactions} view={view} navigate={navigate} />}
       <div className="breakdowns">
         <BreakdownTable
           title="Page"

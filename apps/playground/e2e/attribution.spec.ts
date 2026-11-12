@@ -35,6 +35,7 @@ test("vitals carry attribution", async ({ page }) => {
     await expect.poll(async () => (await attr("INP"))?.attr?.target).toBe("button#buy");
     const inp = await attr("INP");
     expect(inp?.attr?.type).toBe("pointer");
+    expect(inp?.attr?.event).toMatch(/^(pointerdown|pointerup|click)$/);
     expect(inp?.attr?.processing).toBeGreaterThanOrEqual(150);
     // Süre 8 ms'ye yuvarlanır; fazlar ham zamanlardan hesaplanır.
     const { inputDelay = 0, processing = 0, presentation = 0 } = inp?.attr ?? {};
