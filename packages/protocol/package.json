@@ -1,6 +1,6 @@
 {
   "name": "@vitalscope/protocol",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Vitalscope event protocol: schemas, thresholds and limits shared by the SDK and the ingest service",
   "repository": {
     "type": "git",
