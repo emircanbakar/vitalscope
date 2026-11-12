@@ -77,7 +77,7 @@ Errors
         at loadRecommendations (/src/api/recommendations.ts)
 ```
 
-The screenshots and the report use generated sample data.
+The screenshots and the report use generated sample data. For a measurement on a real app, see the [Excalidraw case study](docs/case-studies/excalidraw.md).
 
 ## Packages
 
