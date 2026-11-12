@@ -96,3 +96,10 @@ Whether that trade is worth it is the Excalidraw maintainers' call. The [issue](
 - **Time can land on the next interaction.** In three baseline sessions, the slowest entry was a keyboard interaction whose 640–830 ms were almost all input delay. The step-by-step run shows how this happens: the key release after a theme switch waited 459 ms for the switch's frame to finish. The numbers are correct, but the panel could make it clearer when input delay, not the handler or rendering, dominates.
 
 These are candidates for the next versions of the SDK and the panel.
+
+**Update (12 November 2026).** The measurements above used SDK 0.2.1 and CLI 0.1.1. The first two points are addressed in SDK 0.3.0 and CLI 0.2.0:
+
+- The INP page in the panel lists the slowest interaction of each page view, including the ones INP left out, which are marked "not in INP".
+- INP attribution records the name of the interaction's longest event, such as `keydown` or `pointerup`. The key itself is never recorded.
+
+The third point is still open. The Excalidraw sessions were not measured again with the new versions.
