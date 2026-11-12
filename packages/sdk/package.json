@@ -1,6 +1,6 @@
 {
   "name": "@vitalscope/sdk",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Real user monitoring for Core Web Vitals and JavaScript errors, with zero runtime dependencies",
   "repository": {
     "type": "git",
