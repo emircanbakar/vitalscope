@@ -305,6 +305,21 @@ describe("App", () => {
       expect(link("/draw").getAttribute("href")).toContain("page=%2Fdraw");
       expect(container.querySelector("img")).toBeNull();
       expect(text()).not.toContain("attribution build");
+      expect(text()).not.toContain("ostly waiting");
+    });
+
+    it("marks interactions that were mostly input delay", async () => {
+      responses["/api/metrics/INP"] = {
+        ...DETAIL,
+        summary: summary("INP", 120),
+        interactions: [
+          { duration: 700, inInp: true, ...interaction, event: "keyup", inputDelay: 640, processing: 4, presentation: 56 },
+          { duration: 300, inInp: true, ...interaction, inputDelay: 150, processing: 100, presentation: 50 },
+        ],
+      };
+      await show("/?metric=INP");
+      expect([...rows()!].map((row) => row.children[3]?.textContent)).toEqual(["640 ms mostly waiting", "150 ms"]);
+      expect(text()).toContain("“Mostly waiting” means more than half of the interaction was input delay");
     });
 
     it("points to the attribution build when there are no details", async () => {

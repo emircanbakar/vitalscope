@@ -370,7 +370,8 @@ button {
   color: var(--poor-text);
 }
 
-.interaction-skipped {
+.interaction-skipped,
+.interaction-waited {
   color: var(--text-secondary);
   font-size: 12px;
 }
