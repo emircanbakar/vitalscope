@@ -15,6 +15,11 @@ describe("package.json", () => {
   it("depends only on the server and the protocol; the panel is built in", () => {
     expect(Object.keys(pkg.dependencies).sort()).toEqual(["@hono/node-server", "@vitalscope/protocol", "hono"]);
   });
+
+  it("needs Playwright only for vitalscope run", () => {
+    expect(pkg.peerDependencies).toEqual({ playwright: ">=1.49.0" });
+    expect(pkg.peerDependenciesMeta).toEqual({ playwright: { optional: true } });
+  });
 });
 
 // Yayınlanan paketin dosya listesi (doküman 9.6): beklenmeyen bir dosya pakete girerse test kırılır.
@@ -23,7 +28,7 @@ describe("npm pack", () => {
   it("contains only the expected files", () => {
     const [pack] = JSON.parse(execFileSync("npm", ["pack", "--dry-run", "--json"], { cwd: root, encoding: "utf8", shell: true }));
     const files = (pack.files as { path: string }[]).map((f) => f.path.replace(/-[\w-]{8}\.(css|js)$/, "-[hash].$1")).sort();
-    const modules = ["app", "buffer", "cli", "commands", "fingerprint", "live", "node-version", "origin", "panel", "queries", "report", "rows", "server", "sqlite", "start", "types"];
+    const modules = ["app", "buffer", "change", "cli", "commands", "fingerprint", "live", "node-version", "origin", "panel", "queries", "report", "rows", "run", "runs", "server", "sqlite", "start", "types"];
     const panel = ["dist/panel/assets/index-[hash].css", "dist/panel/assets/index-[hash].js", "dist/panel/index.html"];
     const changelog = existsSync(new URL("CHANGELOG.md", root)) ? ["CHANGELOG.md"] : [];
     expect(files).toEqual(

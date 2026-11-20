@@ -65,10 +65,59 @@ describe("vitalscope", () => {
     [["dev", "--port", "abc"], "--port must be"],
     [["dev", "--port", "70000"], "--port must be"],
     [["dev", "--port", "-1"], "--port"],
+    [["run"], "run needs a scenario file."],
+    [["run", "s.js"], "run needs --url."],
+    [["run", "s.js", "--url", "http://localhost:3000/", "--runs", "0"], "--runs must be"],
+    [["run", "s.js", "--url", "http://localhost:3000/", "--runs", "2.5"], "--runs must be"],
+    [["run", "s.js", "--url", "http://localhost:3000/", "--cpu", "fast"], "--cpu must be"],
+    [["run", "s.js", "--url", "http://localhost:3000/", "--cpu", "0.5"], "--cpu must be"],
+    [["run", "s.js", "extra", "--url", "http://localhost:3000/"], "Unknown command: run s.js extra"],
+    [["report", "--url", "http://localhost:3000/"], "--url is only for run."],
+    [["dev", "--json"], "--json is only for run."],
   ])("rejects %j with exit code 2", async (args, message) => {
     const { code, stderr } = await run(args);
     expect(code).toBe(2);
     expect(stderr).toContain(message);
+  });
+
+  describe("run", () => {
+    const scenario = (source: string) => {
+      const file = join(tempDir(), "scenario.mjs");
+      writeFileSync(file, source);
+      return file;
+    };
+
+    it("accepts only local pages", async () => {
+      const file = scenario("export default async () => {};");
+      const { code, stderr } = await run(["run", file, "--url", "https://example.com/", "--dir", tempDir()]);
+      expect(code).toBe(1);
+      expect(stderr).toContain("--url must be a local page");
+    });
+
+    it("explains a missing scenario", async () => {
+      const missing = join(tempDir(), "yok.mjs");
+      const { code, stderr } = await run(["run", missing, "--url", "http://localhost:3000/", "--dir", tempDir()]);
+      expect(code).toBe(1);
+      expect(stderr).toContain(`Scenario not found: ${missing}`);
+    });
+
+    it("explains a busy port", async () => {
+      const blocker = net.createServer().listen(0, "127.0.0.1");
+      await once(blocker, "listening");
+      const { port } = blocker.address() as net.AddressInfo;
+      const file = scenario("export default async () => {};");
+      const { code, stderr } = await run(["run", file, "--url", "http://localhost:3000/", "--port", String(port), "--dir", tempDir()]);
+      blocker.close();
+      expect(code).toBe(1);
+      expect(stderr).toContain(`Port ${port} is in use. Stop "vitalscope dev"`);
+    });
+
+    it("needs a default export", async () => {
+      const file = scenario("export const steps = 1;");
+      const { code, stderr } = await run(["run", file, "--url", "http://localhost:3000/", "--dir", tempDir()]);
+      expect(code).toBe(1);
+      expect(stderr).toContain("must have a default export");
+    });
   });
 
   it("explains an empty report", async () => {

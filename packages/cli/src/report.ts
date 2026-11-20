@@ -20,12 +20,12 @@ const DEV_WARNING = "Development servers run unminified code with HMR, so these 
  * Yollar ve hata mesajları tarayıcıdan gelir, sayfadaki herhangi bir betik belirleyebilir.
  * Kontrol karakterleri temizlenmezse bir hata mesajı terminale kaçış dizisi basabilir.
  */
-function clean(text: string, width: number) {
+export function clean(text: string, width: number) {
   const safe = text.toWellFormed().replace(/[\p{Cc}\p{Cf}]/gu, " ");
   return safe.length > width ? `${safe.slice(0, width - 1)}…` : safe;
 }
 
-function formatValue(name: MetricName, value: number) {
+export function formatValue(name: MetricName, value: number) {
   if (name === "CLS") return value.toFixed(2);
   return value < 1000 ? `${Math.round(value)} ms` : `${(value / 1000).toFixed(2)} s`;
 }

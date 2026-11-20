@@ -166,6 +166,9 @@ importers:
       '@vitalscope/panel':
         specifier: workspace:*
         version: link:../../apps/panel
+      playwright:
+        specifier: 1.65.0
+        version: 1.65.0
       typescript:
         specifier: 6.0.3
         version: 6.0.3

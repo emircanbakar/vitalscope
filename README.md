@@ -79,6 +79,17 @@ Errors
         at loadRecommendations (/src/api/recommendations.ts)
 ```
 
+**Repeatable runs,** with `vitalscope run`: a Playwright scenario runs several times in fresh browser contexts with a slowed-down CPU, and the result is compared with the previous run of the same scenario. This is how to compare two commits without clicking through the app by hand. The output below is from the repository's playground; see the [CLI README](packages/cli#repeatable-measurements) for setup.
+
+```text
+vitalscope run: buy.mjs, label second, 5 runs, CPU 1.0×
+
+Metric  Median  Range            Measured  Previous (first)  Change
+LCP     36 ms   28 ms – 44 ms    5/5       88 ms             faster, -52 ms (-59%)
+INP     152 ms  152 ms – 152 ms  5/5       160 ms            about the same
+CLS     0.00    0.00 – 0.00      5/5       0.00              about the same
+```
+
 The screenshots and the report use generated sample data. For a measurement on a real app, see the [Excalidraw case study](docs/case-studies/excalidraw.md).
 
 ## Packages
@@ -86,7 +97,7 @@ The screenshots and the report use generated sample data. For a measurement on a
 | Package | |
 | --- | --- |
 | [`@vitalscope/sdk`](packages/sdk) | Measures in the browser. No runtime dependencies, about 5 kB gzip. Does nothing on pages that are not local |
-| [`@vitalscope/cli`](packages/cli) | `vitalscope dev` (collector and panel) and `vitalscope report` |
+| [`@vitalscope/cli`](packages/cli) | `vitalscope dev` (collector and panel), `vitalscope report` and `vitalscope run` |
 | [`@vitalscope/protocol`](packages/protocol) | Event schemas, thresholds and limits shared by both |
 
 ## How accurate it is

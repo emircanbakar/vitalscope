@@ -54,6 +54,22 @@ CREATE TABLE IF NOT EXISTS pageviews (${COMMON_SCHEMA});
 CREATE TABLE IF NOT EXISTS custom_events (${COMMON_SCHEMA},
   name TEXT NOT NULL,
   value REAL
+);
+-- vitalscope run: her çalıştırma ve ona ait oturumlar. Olay tabloları değişmez; eski sürümler bu tabloları görmez.
+CREATE TABLE IF NOT EXISTS runs (
+  id INTEGER PRIMARY KEY,
+  scenario TEXT NOT NULL,
+  label TEXT NOT NULL,
+  url TEXT NOT NULL,
+  cpu_rate REAL NOT NULL,
+  runs INTEGER NOT NULL,
+  started_at INTEGER NOT NULL,
+  ended_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS run_sessions (
+  run_id INTEGER NOT NULL REFERENCES runs (id),
+  session_id TEXT NOT NULL,
+  PRIMARY KEY (run_id, session_id)
 );`;
 
 export interface Store {
