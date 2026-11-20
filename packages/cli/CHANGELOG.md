@@ -1,5 +1,15 @@
 # @vitalscope/cli
 
+## 0.3.0
+
+### Minor Changes
+
+- adb6682: Add `vitalscope run <scenario>`: runs a Playwright scenario several times in Chromium, each time in a fresh browser context with a slowed-down CPU, and prints the median and range of each metric, a comparison with the previous run of the same scenario, and the slowest interactions. Playwright is an optional peer dependency, needed only for this command.
+
+### Patch Changes
+
+- e918dab: The panel's slowest interactions list marks interactions that were mostly input delay ("mostly waiting"): the page was still busy with earlier work, so the cause is in what ran before, not in the interaction's own handler.
+
 ## 0.2.0
 
 ### Minor Changes
