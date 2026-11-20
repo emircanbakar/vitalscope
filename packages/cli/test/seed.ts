@@ -27,7 +27,9 @@ const TARGETS = ["button#buy", "div.app>input.search", "div#canvas", "nav>a.menu
 /** INP attribution, değerden türetilir: rastgele sayı tüketmez, diğer olaylar değişmez. Üçte birinde INP en yavaşını atlamıştır. */
 function interaction(value: number) {
   const keyboard = value % 2 === 0;
-  const timings = (duration: number) => ({ inputDelay: Math.round(duration * 0.1), processing: Math.round(duration * 0.3), presentation: duration - Math.round(duration * 0.1) - Math.round(duration * 0.3) });
+  // Her beşinci etkileşimde süre çoğunlukla girdi gecikmesi (önceki işin karesini bekleyen etkileşim).
+  const [delay, work] = Math.round(value) % 5 === 0 ? [0.7, 0.05] : [0.1, 0.3];
+  const timings = (duration: number) => ({ inputDelay: Math.round(duration * delay), processing: Math.round(duration * work), presentation: duration - Math.round(duration * delay) - Math.round(duration * work) });
   const attr = { target: TARGETS[value % TARGETS.length]!, type: keyboard ? "keyboard" : "pointer", event: keyboard ? "keydown" : "pointerup", ...timings(value) } as const;
   if (value % 3 !== 0) return attr;
   const duration = value * 3;

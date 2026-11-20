@@ -210,6 +210,9 @@ function BreakdownTable({ title, name, rows, onSelect }: { title: string; name: 
   );
 }
 
+/** Girdi gecikmesi sürenin yarısından fazlaysa yavaşlık bu etkileşimden önce çalışan işten gelir. */
+const waited = (row: SlowInteraction) => row.inputDelay !== undefined && row.inputDelay > row.duration / 2;
+
 function SlowInteractionsTable({ rows, view, navigate }: { rows: readonly SlowInteraction[]; view: ViewState; navigate: Navigate }) {
   const time = FORMATS.INP;
   const optional = (value: number | undefined) => (value === undefined ? "-" : time(value));
@@ -247,7 +250,10 @@ function SlowInteractionsTable({ rows, view, navigate }: { rows: readonly SlowIn
                   {row.target ?? "-"}
                 </td>
                 <td>{row.event ?? row.type ?? "-"}</td>
-                <td>{optional(row.inputDelay)}</td>
+                <td>
+                  {optional(row.inputDelay)}
+                  {waited(row) && <span className="interaction-waited"> mostly waiting</span>}
+                </td>
                 <td>{optional(row.processing)}</td>
                 <td>{optional(row.presentation)}</td>
                 <td>
@@ -262,6 +268,12 @@ function SlowInteractionsTable({ rows, view, navigate }: { rows: readonly SlowIn
           </tbody>
         </table>
       </div>
+      {rows.some(waited) && (
+        <p className="note">
+          “Mostly waiting” means more than half of the interaction was input delay: the page was still busy when the input came, often finishing the frame of the interaction before it. Look at what ran just before, not at this
+          interaction's handler.
+        </p>
+      )}
       {rows.every((row) => row.target === undefined) && (
         <p className="note">
           The element, event and timings come from the attribution build: <code>@vitalscope/sdk/attribution</code>.
