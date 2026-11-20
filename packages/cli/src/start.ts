@@ -5,7 +5,7 @@ import { createLive } from "./live.js";
 import { loadPanelAssets } from "./panel.js";
 import { startServer, type RunningServer } from "./server.js";
 import { openStore } from "./sqlite.js";
-import type { EventSink } from "./types.js";
+import type { EventSink, StoredEvent } from "./types.js";
 
 /** Sadece bu makineden ulaşılır; ağdaki başka cihazlar ölçümleri göremez, veri gönderemez. */
 const HOSTNAME = "127.0.0.1";
@@ -21,8 +21,11 @@ function logFailures(sink: EventSink): EventSink {
   };
 }
 
-/** Depoyu ve servisi kurar; `shutdown` tamponu boşaltıp veritabanını da kapatır. */
-export async function start({ port, dir }: { port: number; dir: string }): Promise<RunningServer> {
+/**
+ * Depoyu ve servisi kurar; `shutdown` tamponu boşaltıp veritabanını da kapatır.
+ * `onReceive`: kabul edilen her parti, tampona girmeden önce (`vitalscope run` oturumları buradan tanır).
+ */
+export async function start({ port, dir, onReceive }: { port: number; dir: string; onReceive?: (events: readonly StoredEvent[]) => void }): Promise<RunningServer> {
   const store = openStore(dir);
   const live = createLive();
   const sink = logFailures(store.sink);
@@ -32,10 +35,19 @@ export async function start({ port, dir }: { port: number; dir: string }): Promi
       live.notify();
     },
   });
+  const observed = onReceive
+    ? {
+        ...buffer,
+        add: (events: readonly StoredEvent[]) => {
+          onReceive(events);
+          return buffer.add(events);
+        },
+      }
+    : buffer;
   let server: RunningServer;
   try {
     const assets = loadPanelAssets(fileURLToPath(new URL("./panel/", import.meta.url)));
-    server = await startServer(createApp({ buffer, panel: { db: store.db, assets, live } }), buffer, { port, hostname: HOSTNAME });
+    server = await startServer(createApp({ buffer: observed, panel: { db: store.db, assets, live } }), buffer, { port, hostname: HOSTNAME });
   } catch (error) {
     store.close();
     throw error;

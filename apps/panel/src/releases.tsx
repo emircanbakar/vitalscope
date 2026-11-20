@@ -1,17 +1,10 @@
 import type { MetricName } from "@vitalscope/protocol";
+import { compareMeasured } from "../../../packages/cli/src/change.js";
 import type { Comparison, ReleaseSide } from "../../../packages/cli/src/queries.js";
 import { LoadError, RatingText, ViewLink, type Navigate } from "./components.js";
 import { apiQuery, baseView, type Environment, type ViewState } from "./filters.js";
 import { FORMATS } from "./format.js";
 import { useData } from "./use-data.js";
-
-/** Bundan az ölçümle "yavaşladı" denmez: birkaç sayfa yüklemesinin farkı çoğunlukla gürültüdür. */
-const MIN_SAMPLES = 5;
-/** Bu oranın altındaki fark "aynı" sayılır. */
-const SAME_RATIO = 0.05;
-/** Küçük değerlerde oran yanıltır: 9 ms'den 4 ms'ye düşmek %57 görünür ama yerel ölçümde gürültüdür. */
-const MIN_TIME_DIFFERENCE = 20;
-const MIN_CLS_DIFFERENCE = 0.01;
 
 interface ViewProps {
   view: ViewState;
@@ -20,11 +13,11 @@ interface ViewProps {
 }
 
 export function describeChange(name: MetricName, a: ReleaseSide, b: ReleaseSide) {
-  if (a.p75 === null || b.p75 === null) return { text: "No data", tone: "" };
-  if (a.count < MIN_SAMPLES || b.count < MIN_SAMPLES) return { text: "Too few measurements", tone: "" };
-  const difference = b.p75 - a.p75;
-  const ratio = a.p75 === 0 ? (difference === 0 ? 0 : Infinity) : Math.abs(difference) / a.p75;
-  if (ratio < SAME_RATIO || Math.abs(difference) < (name === "CLS" ? MIN_CLS_DIFFERENCE : MIN_TIME_DIFFERENCE)) return { text: "About the same", tone: "" };
+  const change = compareMeasured(name, { value: a.p75, count: a.count }, { value: b.p75, count: b.count });
+  if (change.kind === "no-data") return { text: "No data", tone: "" };
+  if (change.kind === "too-few") return { text: "Too few measurements", tone: "" };
+  if (change.kind === "same") return { text: "About the same", tone: "" };
+  const { difference, ratio } = change;
   const amount = `${difference > 0 ? "+" : "−"}${FORMATS[name](Math.abs(difference))}`;
   const percent = Number.isFinite(ratio) ? ` (${difference > 0 ? "+" : "−"}${Math.round(ratio * 100)}%)` : "";
   const word = name === "CLS" ? (difference > 0 ? "Worse" : "Better") : difference > 0 ? "Slower" : "Faster";

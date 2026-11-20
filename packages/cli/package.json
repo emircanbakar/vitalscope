@@ -36,8 +36,17 @@
   "devDependencies": {
     "@types/node": "24.19.2",
     "@vitalscope/panel": "workspace:*",
+    "playwright": "1.65.0",
     "typescript": "6.0.3",
     "vitest": "5.1.0"
+  },
+  "peerDependencies": {
+    "playwright": ">=1.49.0"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public"

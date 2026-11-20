@@ -6,17 +6,40 @@ import { start } from "./start.js";
 const DEFAULT_PORT = 8787;
 const DEFAULT_DIR = ".vitalscope";
 
+const DEFAULT_RUNS = 5;
+
 const USAGE = `Usage: vitalscope <command> [options]
 
 Commands:
-  dev       Start the local collector and panel
-  report    Print p75 metrics and errors from collected data
+  dev               Start the local collector and panel
+  report            Print p75 metrics and errors from collected data
+  run <scenario>    Run a Playwright scenario several times and summarize it
 
 Options:
-  --dir <path>   Data folder (default: ${DEFAULT_DIR})
-  --port <port>  Collector port, dev only (default: ${DEFAULT_PORT})
-  -h, --help     Show this help
+  --dir <path>      Data folder (default: ${DEFAULT_DIR})
+  --port <port>     Collector port, dev and run (default: ${DEFAULT_PORT})
+  -h, --help        Show this help
+
+Run options:
+  --url <url>       Local page the scenario starts on (required)
+  --runs <n>        Sessions, each in a fresh browser context (default: ${DEFAULT_RUNS})
+  --cpu <rate>      CPU slowdown: auto, or a number; 1 turns it off (default: auto)
+  --label <name>    Name of this run (default: git short SHA)
+  --json            Print the summary as JSON
 `;
+
+const RUN_OPTIONS = ["url", "runs", "cpu", "label", "json"] as const;
+
+/** Geçersizse kullanıcıya gösterilecek mesajı döner. */
+function parseRunOptions(values: Record<string, string | boolean | undefined>, scenario: string | undefined) {
+  if (scenario === undefined) return "run needs a scenario file.";
+  if (typeof values.url !== "string") return "run needs --url.";
+  const runs = values.runs === undefined ? DEFAULT_RUNS : Number(values.runs);
+  if (!Number.isInteger(runs) || runs < 1 || runs > 100) return "--runs must be a whole number from 1 to 100.";
+  const cpu: number | "auto" = values.cpu === undefined || values.cpu === "auto" ? "auto" : Number(values.cpu);
+  if (cpu !== "auto" && !(cpu >= 1 && cpu <= 20)) return "--cpu must be auto or a number from 1 to 20.";
+  return { scenario, url: values.url, runs, cpu, json: values.json === true, ...(typeof values.label === "string" && { label: values.label }) };
+}
 
 function parsePort(value: string | undefined): number | null {
   if (value === undefined) return DEFAULT_PORT;
@@ -61,7 +84,16 @@ export async function run(argv: string[]): Promise<number> {
     parsed = parseArgs({
       args: argv,
       allowPositionals: true,
-      options: { dir: { type: "string" }, port: { type: "string" }, help: { type: "boolean", short: "h" } },
+      options: {
+        dir: { type: "string" },
+        port: { type: "string" },
+        help: { type: "boolean", short: "h" },
+        url: { type: "string" },
+        runs: { type: "string" },
+        cpu: { type: "string" },
+        label: { type: "string" },
+        json: { type: "boolean" },
+      },
     });
   } catch (error) {
     console.error(`${(error as Error).message}\n\n${USAGE}`);
@@ -76,10 +108,27 @@ export async function run(argv: string[]): Promise<number> {
 
   const dir = values.dir ?? DEFAULT_DIR;
   const port = parsePort(values.port);
-  if ((command !== "dev" && command !== "report") || rest.length > 0 || port === null) {
-    console.error(`${port === null ? "--port must be a number from 0 to 65535." : `Unknown command: ${positionals.join(" ")}`}\n\n${USAGE}`);
+  const usageError = (message: string) => {
+    console.error(`${message}\n\n${USAGE}`);
     return 2;
+  };
+  if (port === null) return usageError("--port must be a number from 0 to 65535.");
+  if (command === "run") {
+    const options = parseRunOptions(values, rest[0]);
+    if (typeof options === "string") return usageError(options);
+    if (rest.length > 1) return usageError(`Unknown command: ${positionals.join(" ")}`);
+    try {
+      const { runScenario } = await import("./run.js");
+      console.log(await runScenario({ ...options, dir, port }));
+      return 0;
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : "Unknown error");
+      return 1;
+    }
   }
+  const runOnly = RUN_OPTIONS.filter((name) => values[name] !== undefined);
+  if ((command !== "dev" && command !== "report") || rest.length > 0) return usageError(`Unknown command: ${positionals.join(" ")}`);
+  if (runOnly.length > 0) return usageError(`--${runOnly[0]} is only for run.`);
 
   try {
     if (command === "dev") return await dev(port, dir);

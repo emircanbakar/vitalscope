@@ -145,9 +145,16 @@ export function sortedPercentile(sorted: readonly number[], q: number) {
   return sorted[Math.ceil(sorted.length * q) - 1]!;
 }
 
-function where({ env, page, device, since, release }: Partial<Filters>) {
+/** `run`: sadece o `vitalscope run` çalıştırmasının oturumları. */
+type Scope = Partial<Filters> & { run?: number };
+
+function where({ env, page, device, since, release, run }: Scope) {
   const clauses = ["1"];
   const params: SQLInputValue[] = [];
+  if (run !== undefined) {
+    clauses.push("session_id IN (SELECT session_id FROM run_sessions WHERE run_id = ?)");
+    params.push(run);
+  }
   if (env !== undefined) {
     clauses.push("env = ?");
     params.push(env);
@@ -326,14 +333,14 @@ type InteractionDetails = Pick<SlowInteraction, "target" | "type" | "event" | "i
  * INP 50'den fazla etkileşimde en yavaşını atlar; SDK atlanan etkileşimi `slowest` olarak gönderir.
  * Her sayfa görüntülemesinin en yavaş etkileşimi ya o ya da INP'nin kendisidir.
  */
-function slowInteractions(db: DatabaseSync, filters: Filters): SlowInteraction[] {
+export function slowInteractions(db: DatabaseSync, filters: Scope, limit = MAX_INTERACTIONS): SlowInteraction[] {
   const { sql, params } = where(filters);
   const rows = db
     .prepare(
       `SELECT COALESCE(route, path) AS page, ts, release, value, attr_target AS target, attr_type AS type, attr FROM vitals
        WHERE ${sql} AND name = 'INP' ORDER BY COALESCE(json_extract(attr, '$.slowest.duration'), value) DESC, ts DESC LIMIT ?`,
     )
-    .all(...params, MAX_INTERACTIONS) as unknown as InteractionRow[];
+    .all(...params, limit) as unknown as InteractionRow[];
   return rows.map(({ page, ts, release, value, target, type, attr }) => {
     const { slowest, event, inputDelay, processing, presentation } = (attr ? JSON.parse(attr) : {}) as InteractionDetails & { slowest?: InteractionDetails & { duration: number } };
     const common = { page, ts, release };
